@@ -825,6 +825,13 @@ function renderSite(){
   const cw=document.getElementById('cw');
   const svLeg=document.getElementById('sv-legend');
   if(!recs.length){
+    // Check if data exists outside the current year range
+    const hint=allRecs.length?
+      (()=>{const ys=allRecs.map(r=>+r.d.slice(0,4)).filter(y=>!isNaN(y));
+            const lo=Math.min(...ys),hi=Math.max(...ys);
+            return `Data exists for this parameter at this site (${lo}–${hi}) — adjust the year range above to view it.`;})()
+      :'';
+    nd.innerHTML=`No data for this parameter at this site${hint?'.<br><small style="color:var(--muted)">'+hint+'</small>':'.'}`;
     nd.style.display='block';cw.style.display='none';svLeg.style.display='none';
     document.getElementById('si').style.display='none';document.getElementById('hn').textContent='';return;
   }
@@ -930,7 +937,9 @@ function renderSite(){
 function buildStdLines(stds,recs){
   if(!stds.length||!recs.length) return [];
   const dates=recs.map(r=>r.d).sort();
-  const xMin=dates[0],xMax=dates[dates.length-1];
+  const yr0=+dates[0].slice(0,4), yr1=+dates[dates.length-1].slice(0,4);
+  // Extend ±1 year so single-point sites still render a visible horizontal line
+  const xMin=`${yr0-1}-01-01`, xMax=`${yr1+1}-12-31`;
   const STYLES={
     'acute':          {col:'#dc2626',dash:[6,3]},
     'chronic':        {col:'#2563eb',dash:[5,3]},
