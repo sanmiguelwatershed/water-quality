@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>San Miguel Watershed — Water Quality Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1c1a17;--bg:#f5f2ed;--surf:#fff;--surf2:#ece8e0;
+  --bdr:#ccc8be;--muted:#6e6a62;--accent:#2a5f8e;--accent2:#8e3b2b;
+  --green:#286641;--gold:#9a7209;
+  --r:6px;--sh:0 2px 16px rgba(0,0,0,.09);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+/* NAV */
+#nav{position:fixed;top:0;left:0;right:0;z-index:2000;height:54px;background:#1c1a17;
+  display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+  box-shadow:0 2px 14px rgba(0,0,0,.35)}
+.nav-brand h1{font-family:'Playfair Display',serif;font-size:16px;color:#fff;font-weight:400;letter-spacing:.01em}
+.nav-brand sup{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.1em;text-transform:uppercase;margin-left:6px}
+.nav-tabs{display:flex;gap:2px}
+.tb{padding:6px 14px;border:none;border-radius:var(--r);background:transparent;
+  color:rgba(255,255,255,.5);font-family:'Source Sans 3',sans-serif;font-size:12.5px;
+  font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:.02em}
+.tb:hover{background:rgba(255,255,255,.09);color:#fff}
+.tb.active{background:var(--accent);color:#fff}
+.nav-right{font-size:10.5px;color:rgba(255,255,255,.3);letter-spacing:.06em;white-space:nowrap}
+/* MAIN */
+main{margin-top:54px;height:calc(100vh - 54px);display:flex;flex-direction:column}
+.view{display:none;flex:1;overflow:hidden}
+.view.active{display:flex}
+
+/* ── SITE VIEW ── */
+#view-site{flex-direction:row}
+#map-panel{width:42%;min-width:320px;position:relative;border-right:1px solid var(--bdr)}
+#map{height:100%;width:100%}
+/* Org layer legend */
+#org-legend{position:absolute;bottom:28px;left:10px;z-index:1000;background:rgba(255,255,255,.95);
+  border:1px solid var(--bdr);border-radius:var(--r);padding:8px 11px;
+  box-shadow:0 2px 10px rgba(0,0,0,.13);min-width:155px;max-width:200px}
+.oleg-hd{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}
+.oleg-row{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer;user-select:none;
+  border-radius:3px;transition:opacity .15s}
+.oleg-row:hover{background:var(--surf2)}
+.oleg-row.off{opacity:.3}
+.oleg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.oleg-name{font-size:11.5px;line-height:1.3}
+#site-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--surf)}
+/* Placeholder */
+#ph{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--muted);gap:10px;padding:40px;text-align:center}
+#ph .phi{font-size:44px;opacity:.25}
+#ph p{font-size:13.5px;max-width:260px}
+#ph small{font-size:11.5px;color:var(--muted);opacity:.7}
+/* Site content */
+#sc{display:none;height:100%;flex-direction:column;overflow:hidden}
+#sh{padding:14px 18px 10px;border-bottom:1px solid var(--bdr);background:var(--surf);flex-shrink:0}
+#sn{font-family:'Playfair Display',serif;font-size:17px;font-weight:400}
+#sm{font-size:11.5px;color:var(--muted);margin-top:2px}
+#so{margin-top:5px;display:flex;flex-wrap:wrap;gap:4px}
+.ob{padding:2px 7px;border-radius:10px;font-size:10.5px;font-weight:600;color:#fff;letter-spacing:.02em}
+#pb{padding:8px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;
+  gap:10px;flex-wrap:wrap;background:var(--surf2);flex-shrink:0}
+#pb label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+#ps{padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--r);
+  background:var(--surf);font-family:'Source Sans 3',sans-serif;font-size:13px;color:var(--ink);
+  outline:none;min-width:190px}
+#ps:focus{border-color:var(--accent)}
+#yr-range{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+#yr-range input{width:58px;padding:5px 6px;border:1px solid var(--bdr);border-radius:4px;
+  font-size:12px;font-family:'Source Sans 3',sans-serif;text-align:center}
+/* Chart area */
+#ca{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+#cw{position:relative;height:290px}
+#mc{width:100%!important;height:100%!important}
+#nd{display:none;padding:32px;text-align:center;color:var(--muted);font-style:italic;font-size:13px}
+/* Standards info box */
+#si{background:var(--surf2);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 13px;font-size:12px;display:none}
+#si h4{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px}
+.sr{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--bdr)}
+.sr:last-child{border:none}
+.sl{color:var(--muted);display:flex;align-items:center;gap:4px}
+.sv{font-weight:600;font-size:12.5px}
+/* Hardness note */
+#hn{font-size:11px;color:var(--muted);font-style:italic;padding:2px 0}
+/* Tags */
+.tg{font-size:9.5px;padding:1px 5px;border-radius:8px;font-weight:700;letter-spacing:.03em}
+.tg-a{background:#fee2e2;color:#991b1b}
+.tg-c{background:#dbeafe;color:#1e3a8a}
+.tg-cd{background:#fef3c7;color:#92400e}
+.tg-epa{background:#dcfce7;color:#14532d}
+.tg-ws{background:#ecfdf5;color:#065f46}
+.tg-tmdl{background:#fee2e2;color:#991b1b}
+.tg-rng{background:#ede9fe;color:#5b21b6}
+.sr-footnote{font-size:10.5px;color:var(--muted);font-style:italic;margin-top:7px;padding-top:6px;border-top:1px solid var(--bdr);line-height:1.45}
+/* Site view legend */
+#sv-legend{font-size:11px;color:var(--muted);display:none;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:4px 0}
+.lgi{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.lg-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+.lg-sep{width:1px;height:14px;background:var(--bdr);margin:0 2px}
+
+/* quick-select buttons */
+.qs-btn{padding:3px 9px;border-radius:10px;font-size:11px;cursor:pointer;
+  border:1px solid var(--bdr);background:var(--surf);color:var(--muted);
+  font-family:'Source Sans 3',sans-serif;transition:all .14s;white-space:nowrap;line-height:1.6}
+.qs-btn:hover{background:var(--surf2);color:var(--ink);border-color:#aaa}
+/* Site multi-select dropdown */
+#pv-site-dd{position:relative;width:100%}
+#pv-site-btn{width:100%;text-align:left;padding:6px 9px;border:1px solid var(--bdr);border-radius:var(--r);
+  background:var(--surf);cursor:pointer;font-size:12.5px;font-family:inherit;color:var(--ink);
+  display:flex;justify-content:space-between;align-items:center;gap:6px}
+#pv-site-btn:hover{border-color:#aaa}
+#pv-site-panel{display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:300;
+  background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);
+  box-shadow:0 4px 16px rgba(0,0,0,.13);padding:8px;min-width:260px}
+#pv-site-panel.open{display:block}
+.pv-dd-ctrl{display:flex;gap:5px;margin-bottom:6px}
+.pv-dd-ctrl input{flex:1;min-width:0;padding:5px 8px;border:1px solid var(--bdr);border-radius:var(--r);font-size:12px;font-family:inherit;background:var(--surf);color:var(--ink)}
+.pv-dd-ctrl input:focus{border-color:var(--accent);outline:none}
+#psl{max-height:420px;overflow-y:auto;display:flex;flex-direction:column}
+.pv-cb-item{display:flex;align-items:center;gap:6px;padding:4px 5px;border-radius:4px;cursor:pointer;user-select:none}
+.pv-cb-item:hover{background:var(--surf2)}
+.pv-cb-item input[type=checkbox]{cursor:pointer;width:13px;height:13px;flex-shrink:0;accent-color:var(--accent)}
+.pv-cb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pv-cb-id{font-size:11.5px;font-weight:600;color:var(--ink);flex-shrink:0}
+.pv-cb-name{font-size:11px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── PARAM VIEW ── */
+#view-param{flex-direction:column;overflow-x:hidden;overflow-y:auto}
+#pvi{padding:18px;display:flex;flex-direction:column;gap:14px;max-width:1380px;margin:0 auto;width:100%}
+.pvc{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--surf);
+  padding:12px 16px;border-radius:var(--r);border:1px solid var(--bdr);box-shadow:var(--sh)}
+.pcg{display:flex;flex-direction:column;gap:4px}
+.pcg label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.pcg select,.pcg input[type=number]{padding:6px 9px;border:1px solid var(--bdr);border-radius:var(--r);
+  background:var(--bg);font-family:'Source Sans 3',sans-serif;font-size:13px;color:var(--ink);outline:none}
+.pcg select:focus,.pcg input:focus{border-color:var(--accent)}
+/* Param view mid-row: minimap + sites */
+#pv-mid{display:flex;gap:12px;align-items:flex-start}
+#pv-minimap{height:220px;width:250px;min-width:200px;flex-shrink:0;border-radius:var(--r);border:1px solid var(--bdr);background:var(--surf2);cursor:grab}
+#pv-minimap:active{cursor:grabbing}
+#pv-mm-sites{flex:1;min-width:0;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;box-shadow:var(--sh)}
+.sc2{padding:3px 9px;border-radius:10px;font-size:11.5px;cursor:pointer;border:1.5px solid transparent;
+  transition:all .14s;user-select:none;font-weight:500}
+.sc2:hover{opacity:.8}
+.sc2.sel{border-color:#1c1a17!important;box-shadow:0 0 0 2px rgba(0,0,0,.12)}
+.badge-303d{display:inline-block;background:#c0392b;color:#fff;font-size:9px;font-weight:700;
+  padding:1px 4px;border-radius:4px;margin-left:3px;vertical-align:middle;letter-spacing:.3px;line-height:1.5}
+.badge-tmdl{background:#7b2d8b}
+.badge-4a{background:#e67e22}
+.impair-note{font-size:10.5px;color:#c0392b;margin-top:4px;line-height:1.4}
+.impair-note.cat4a{color:#e67e22}
+#pvw{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);
+  padding:14px;box-shadow:var(--sh)}
+#pvci{position:relative;height:400px}
+#pvc2{width:100%!important;height:100%!important}
+#pvci-multi{display:none}
+.pvci-multi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.pvci-item{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;box-shadow:var(--sh)}
+.pvci-item-label{font-size:12px;font-weight:600;color:var(--fg);margin-bottom:4px}
+.pvci-item-canvas{position:relative;height:220px}
+#pvleg{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)}
+.li{display:flex;align-items:center;gap:5px;font-size:11.5px}
+.ld{width:9px;height:9px;border-radius:50%}
+.lg-zone{width:14px;height:9px;border-radius:2px;flex-shrink:0;border:1px solid rgba(0,0,0,.10)}
+#pvnote{font-size:11px;color:var(--muted);padding:3px 0;font-style:italic}
+
+/* ── GUIDE ── */
+#view-guide{overflow:auto}
+#gi{max-width:820px;margin:0 auto;padding:28px 22px}
+#gi h2{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:13.5px;margin-bottom:24px}
+.gs{margin-bottom:24px}
+.gs h3{font-family:'Playfair Display',serif;font-size:17px;font-weight:400;color:var(--accent);
+  margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)}
+.gs p{margin-bottom:8px;line-height:1.65}
+.gs ul{padding-left:18px;margin-bottom:8px}
+.gs li{margin-bottom:5px;line-height:1.6}
+.co{padding:9px 13px;margin:8px 0;border-radius:0 var(--r) var(--r) 0;font-size:12.5px;line-height:1.55}
+.co-blue{background:#eff6ff;border-left:3px solid var(--accent)}
+.co-gold{background:#fefce8;border-left:3px solid var(--gold)}
+.co-green{background:#f0fdf4;border-left:3px solid var(--green)}
+.co-red{background:#fef2f2;border-left:3px solid #dc2626}
+a.rl{display:inline-flex;align-items:center;gap:3px;color:var(--accent);text-decoration:none;
+  font-weight:600;border-bottom:1px solid currentColor;font-size:13px}
+a.rl:hover{opacity:.7}
+.sg{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;align-items:center;margin:10px 0}
+.sg .tg{display:inline-block;white-space:nowrap}
+/* Source table */
+.src-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+.src-table th{text-align:left;padding:5px 8px;background:var(--surf2);font-weight:600;
+  font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.src-table td{padding:5px 8px;border-top:1px solid var(--bdr);vertical-align:top}
+.src-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+
+/* SHARED DUAL RANGE SLIDER (param view year filter) */
+.dual-yr-wrap{position:relative;height:20px;margin-top:2px}
+.dual-yr-wrap input[type=range]{position:absolute;width:100%;height:100%;
+  pointer-events:none;-webkit-appearance:none;background:transparent;top:0;left:0;margin:0}
+.dual-yr-wrap input[type=range]::-webkit-slider-thumb{pointer-events:all;-webkit-appearance:none;
+  width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;
+  border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.28);margin-top:-5px}
+.dual-yr-wrap input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:transparent}
+.dual-yr-wrap input[type=range]::-moz-range-thumb{pointer-events:all;width:14px;height:14px;
+  border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.28)}
+.dual-yr-wrap input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:transparent}
+.dual-yr-rail{position:absolute;top:50%;transform:translateY(-50%);left:0;right:0;
+  height:4px;background:var(--bdr);border-radius:2px;pointer-events:none}
+.dual-yr-fill{position:absolute;top:0;height:100%;background:var(--accent);border-radius:2px}
+
+/* MAP YEAR FILTER */
+#map-yr-ctrl{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;
+  background:rgba(255,255,255,.96);border:1px solid var(--bdr);border-radius:20px;
+  padding:7px 14px 8px;box-shadow:0 2px 10px rgba(0,0,0,.13);
+  display:flex;align-items:center;gap:10px;min-width:280px;max-width:380px;width:70%}
+#map-yr-label{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap;
+  min-width:82px;text-align:center;letter-spacing:.01em}
+.map-yr-range{position:relative;flex:1;height:20px}
+.map-yr-range input[type=range]{position:absolute;width:100%;height:100%;
+  pointer-events:none;-webkit-appearance:none;background:transparent;top:0;left:0;margin:0}
+.map-yr-range input[type=range]::-webkit-slider-thumb{pointer-events:all;-webkit-appearance:none;
+  width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;
+  border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.28);margin-top:-5px}
+.map-yr-range input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:transparent}
+.map-yr-range input[type=range]::-moz-range-thumb{pointer-events:all;width:14px;height:14px;
+  border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.28)}
+.map-yr-range input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:transparent}
+#map-yr-rail{position:absolute;top:50%;transform:translateY(-50%);left:0;right:0;
+  height:4px;background:var(--bdr);border-radius:2px;pointer-events:none}
+#map-yr-fill{position:absolute;top:0;height:100%;background:var(--accent);border-radius:2px}
+
+/* POPUP */
+.leaflet-popup-content-wrapper{border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr)}
+.leaflet-popup-content{font-family:'Source Sans 3',sans-serif;font-size:12.5px;line-height:1.5;min-width:190px}
+.pn{font-family:'Playfair Display',serif;font-size:14px;margin-bottom:3px}
+.pm{color:var(--muted);font-size:11px;margin-bottom:5px}
+.po{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:6px}
+.pb2{width:100%;padding:6px;background:var(--accent);color:#fff;border:none;
+  border-radius:4px;font-size:11.5px;font-weight:600;cursor:pointer}
+.pb2:hover{background:#1e4e7a}
+
+/* LOADING */
+#ld{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:10px}
+#ld h2{font-family:'Playfair Display',serif;font-size:20px;font-weight:400}
+#ld p{color:var(--muted);font-size:12.5px}
+.sp{width:32px;height:32px;border:3px solid var(--bdr);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:800px){
+  #view-site{flex-direction:column}
+  #map-panel{width:100%;height:38vh;border-right:none;border-bottom:1px solid var(--bdr)}
+  .nav-right{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="ld">
+  <div class="sp"></div>
+  <h2>San Miguel Watershed</h2>
+  <p>Loading water quality data…</p>
+</div>
+
+<nav id="nav">
+  <div class="nav-brand"><h1>San Miguel Watershed <sup>Water Quality</sup></h1></div>
+  <div class="nav-tabs">
+    <button class="tb active" onclick="showView('site',this)">📍 Site View</button>
+    <button class="tb" onclick="showView('param',this)">📈 Parameter View</button>
+    <button class="tb" onclick="showView('guide',this)">📋 Standards Guide</button>
+  </div>
+  <div class="nav-right">DRAFT — Board Review Only</div>
+</nav>
+
+<main>
+
+<!-- SITE VIEW -->
+<div id="view-site" class="view active">
+  <div id="map-panel">
+    <div id="map"></div>
+    <div id="map-yr-ctrl">
+      <span id="map-yr-label">––</span>
+      <div class="map-yr-range">
+        <div id="map-yr-rail"><div id="map-yr-fill"></div></div>
+        <input type="range" id="map-yr-from" oninput="onMapYrInput('from')">
+        <input type="range" id="map-yr-to"   oninput="onMapYrInput('to')">
+      </div>
+    </div>
+    <div id="org-legend"></div>
+  </div>
+  <div id="site-panel">
+    <div id="ph">
+      <div class="phi">🗺️</div>
+      <p>Click a site on the map to view its water quality data.</p>
+      <small>422 monitoring sites &nbsp;·&nbsp; 1909–2025 &nbsp;·&nbsp; 85,000+ measurements</small>
+    </div>
+    <div id="sc">
+      <div id="sh">
+        <div id="sn">—</div>
+        <div id="sm">—</div>
+        <div id="so-303d"></div>
+        <div id="so"></div>
+      </div>
+      <div id="pb">
+        <label>Parameter</label>
+        <select id="ps" onchange="renderSite()"></select>
+        <div id="yr-range">
+          <input type="number" id="s-yr-from" value="1909" min="1909" max="2025" onchange="renderSite()">
+          <span>–</span>
+          <input type="number" id="s-yr-to" value="2025" min="1909" max="2025" onchange="renderSite()">
+        </div>
+      </div>
+      <div id="ca">
+        <div id="sv-legend"></div>
+        <div id="cw"><canvas id="mc"></canvas></div>
+        <div id="nd">No data for this parameter at this site.</div>
+        <div id="hn"></div>
+        <div id="si"><h4>Standards &amp; Reference Values</h4><div id="sr-rows"></div><div id="sr-note"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PARAM VIEW -->
+<div id="view-param" class="view">
+<div id="pvi">
+  <div class="pvc">
+    <div class="pcg">
+      <label>Parameter</label>
+      <select id="pv-p" onchange="pvBuild(false)"></select>
+    </div>
+    <div class="pcg">
+      <label>Organization</label>
+      <select id="pv-org" onchange="pvBuild(true)">
+        <option value="">All organizations</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>HUC10 Watershed</label>
+      <select id="pv-huc10" onchange="pvOnHuc10Change()">
+        <option value="">All watersheds</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>HUC12 Subwatershed</label>
+      <select id="pv-huc12" onchange="pvOnHuc12Change()">
+        <option value="">All subwatersheds</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>Stream Segment</label>
+      <select id="pv-seg" onchange="pvBuild(true)">
+        <option value="">All segments</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>Year range</label>
+      <div style="display:flex;gap:5px;align-items:center">
+        <input type="number" id="pv-yf" value="2000" min="1909" max="2025" style="width:64px" onchange="pvRender()">
+        <span style="color:var(--muted)">–</span>
+        <input type="number" id="pv-yt" value="2025" min="1909" max="2025" style="width:64px" onchange="pvRender()">
+      </div>
+    </div>
+  </div>
+  <div id="pv-mid">
+    <div id="pv-minimap"></div>
+    <div id="pv-mm-sites">
+      <div class="pcg" style="margin-bottom:7px">
+        <label>Sites</label>
+        <div id="pv-site-dd">
+          <button id="pv-site-btn" onclick="pvToggleSiteDD(event)">
+            <span id="pv-site-count">0 selected</span>
+            <span style="font-size:10px;color:var(--muted)">▾</span>
+          </button>
+          <div id="pv-site-panel">
+            <div class="pv-dd-ctrl">
+              <input type="text" id="pv-search" placeholder="search sites…" oninput="pvSearch()">
+              <button class="qs-btn" onclick="pvSelectAll()">Select all</button>
+              <button class="qs-btn" onclick="pvDeselectAll()">Deselect all</button>
+            </div>
+            <div id="psl"></div>
+          </div>
+        </div>
+      </div>
+      <div id="pv-qs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+    </div>
+  </div>
+  <div id="pvw">
+    <div id="pvci"><canvas id="pvc2"></canvas></div>
+    <div id="pvci-multi"></div>
+    <div id="pvleg"></div>
+  </div>
+  <div id="pvnote"></div>
+</div>
+</div>
+
+<!-- STANDARDS GUIDE -->
+<div id="view-guide" class="view">
+<div id="gi">
+  <h2>Water Quality Standards Guide</h2>
+  <p class="subtitle">How standards and reference lines are determined and displayed in this dashboard</p>
+
+  <div class="gs">
+    <h3>Colorado Regulatory Framework</h3>
+    <p>Water quality standards in Colorado are set by the <strong>Water Quality Control Commission (WQCC)</strong> and administered by <a class="rl" href="https://cdphe.colorado.gov/water-quality-control-commission-regulations" target="_blank">CDPHE</a>. For the San Miguel watershed, three regulations are most relevant:</p>
+    <ul>
+      <li><strong>Regulation 31</strong> — Basic Standards and Methodologies for Surface Water. Contains statewide numeric tables used across all basins, including Table I (water supply standards), Table II (fixed inorganic standards), and Table III (hardness-based metal equations).<br>
+        <a class="rl" href="https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=11749&fileName=5%20CCR%201002-31" target="_blank">→ 5 CCR 1002-31 (PDF — CO Secretary of State)</a>
+      </li>
+      <li><strong>Regulation 35</strong> — Classifications and Numeric Standards for the Gunnison and Lower Dolores River Basins. Assigns designated use classifications and numeric standards to specific stream segments (identified by AUID code, e.g. COGUSM03b_A).<br>
+        <a class="rl" href="https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=11743&fileName=5%20CCR%201002-35" target="_blank">→ 5 CCR 1002-35 (PDF — CO Secretary of State)</a>
+      </li>
+      <li><strong>Regulation 93</strong> — Colorado's Section 303(d) List of Impaired Waters. Identifies segments where water quality standards are not being met and TMDLs are required.<br>
+        <a class="rl" href="https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=12466&fileName=5%20CCR%201002-93" target="_blank">→ 5 CCR 1002-93 (PDF — CO Secretary of State)</a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="gs">
+    <h3>TVS — Hardness-Based Metal Standards</h3>
+    <p>Many metals in Regulation 35 are listed as <strong>TVS (Table Value Standard)</strong>. This means the numeric standard is <em>not a fixed number</em> — it is calculated from the water's hardness using equations in Regulation 31, Table III. Higher hardness (calcium and magnesium content, expressed as mg/L CaCO₃) results in a higher allowable concentration, reflecting reduced bioavailability of metals in harder water.</p>
+    <div class="co co-blue">
+      <strong>Hardness-based parameters in this dashboard:</strong> Zinc, Cadmium, Copper, Lead, Manganese, Uranium, Aluminum, Nickel, Chromium III.<br><br>
+      <strong>How exceedances are determined here:</strong> For each metal measurement, we find the hardness measured at the same site within ±7 days, calculate the TVS using the Reg 31 Table III equation, and flag if the measured value exceeds that result. Where same-day hardness is unavailable, the site's median measured hardness is used, then the segment median as a fallback. The source of hardness used (same-day, nearby, site median, or segment median) is noted per measurement.<br><br>
+      The dashed threshold lines on charts show the TVS at the segment's median hardness for visual reference.
+    </div>
+    <div class="co co-gold">
+      <strong>Important:</strong> These are approximations for dashboard purposes. Formal compliance determinations under Regulation 35 require hardness measured at the same site and time as the metal sample.
+    </div>
+    <p><a class="rl" href="https://cdphe.colorado.gov/environment/water-quality/clean-water/water-quality-standards" target="_blank">→ CDPHE Hardness-Based Standards Calculator (Excel)</a></p>
+  </div>
+
+  <div class="gs">
+    <h3>Arsenic: Aquatic Life vs. Water Supply Standard</h3>
+    <div class="co co-red">
+      <strong>Regulatory note:</strong> Regulation 35 includes a chronic water supply arsenic standard of 0.02 µg/L (total recoverable). This extremely low value is a known regulatory artifact — an artifact of how the water supply classification standard was written — and does not reflect ambient aquatic conditions. CDPHE has acknowledged this issue.<br><br>
+      This dashboard uses the <strong>aquatic life standard</strong> (360 µg/L acute dissolved; 150 µg/L chronic dissolved) for all visualization and exceedance flagging. Where Agriculture use is designated (most San Miguel segments), the Agriculture standard of <strong>100 µg/L total recoverable</strong> (more restrictive) also applies for acute comparison. The 0.02 µg/L value is retained in the underlying database for reference only.
+    </div>
+  </div>
+
+  <div class="gs">
+    <h3>Idarado Consent Decree Zinc Standard</h3>
+    <p>Sites on the San Miguel mainstem from the Pandora Mill (Telluride) downstream to the South Fork confluence are subject to a separate compliance target from the 1987 Idarado Record of Decision, in addition to the state TVS zinc standard:</p>
+    <div class="co co-gold">
+      <strong>Zinc: 0.15 mg/L (150 µg/L) dissolved</strong> — compliance target per Table 4.1, Record of Decision for the Idarado Mining and Milling Complex (State of Colorado v. Idarado Mining Co., Civil Action 83-C-2385, March 1987). Applies to segments COGUSM03a_A and COGUSM03b_A.
+    </div>
+    <p>This standard is shown as a separate dashed line (amber/brown color) on charts for applicable sites, clearly distinguished from the state TVS standard.</p>
+  </div>
+
+  <div class="gs">
+    <h3>Nutrient Standards and EPA Reference Criteria</h3>
+    <p><strong>Nitrate, Nitrite, and Ammonia</strong> have numeric standards in Regulation 35 and are shown with enforceable threshold lines.</p>
+    <p><strong>Total Nitrogen and Total Phosphorus</strong> do not have numeric standards in Regulation 35 — only a narrative standard applies in Colorado. This dashboard displays EPA 304(a) recommended reference condition criteria as context:</p>
+    <div class="co co-green">
+      <strong>These are not enforceable standards.</strong> They represent the 25th percentile of minimally impacted reference streams in each ecoregion — a benchmark for what clean conditions look like, not a regulatory threshold. Reference lines are labeled "EPA Reference Condition" in charts.
+    </div>
+    <p>The San Miguel watershed spans two EPA Aggregate Nutrient Ecoregions (based on EPA 822-B-00-015 and 822-B-00-016, December 2000):</p>
+    <ul>
+      <li><strong>Upper watershed — Ecoregion II (Western Forested Mountains / Southern Rockies):</strong> TP reference = 10 µg/L; TN reference = 0.12 mg/L. Segments COGUSM01–09, 14, 19, 20.</li>
+      <li><strong>Lower watershed — Ecoregion III (Xeric West / Colorado Plateaus):</strong> TP reference = 21.88 µg/L; TN reference = 0.38 mg/L. Segments COGUSM10–12, COGULD.</li>
+    </ul>
+    <p><a class="rl" href="https://www.epa.gov/nutrientpollution/ecoregional-nutrient-criteria-rivers-and-streams" target="_blank">→ EPA Ecoregional Nutrient Criteria</a></p>
+  </div>
+
+  <div class="gs">
+    <h3>Standard Types</h3>
+    <div class="sg">
+      <span class="tg tg-a">ACUTE</span><span>Single-sample maximum. Protects against lethal short-term effects.</span>
+      <span class="tg tg-c">CHRONIC</span><span>Long-term average (typically 30-day). Protects against sublethal and reproductive effects.</span>
+      <span class="tg tg-cd">ROD TARGET</span><span>Idarado Record of Decision (ROD) compliance target for zinc — separate from state regulatory standards.</span>
+      <span class="tg tg-ws">WATER SUPPLY</span><span>Reg 31 Table I domestic water supply standard. Applies where segments are classified for water supply use. Currently used for iron (300 µg/L).</span>
+      <span class="tg tg-epa">EPA REFERENCE</span><span>EPA 304(a) recommended reference condition for nutrients. Not an enforceable standard.</span>
+      <span class="tg tg-tmdl">303(d)/TMDL</span><span>Segment on Colorado's impaired waters list for this parameter.</span>
+    </div>
+  </div>
+
+  <div class="gs">
+    <h3>Data Sources</h3>
+    <table class="src-table">
+      <tr><th>Organization</th><th>Role</th><th>Years</th></tr>
+      <tr><td><span class="src-dot" style="background:#1a6bb5"></span><strong>SMWC</strong></td><td>San Miguel Watershed Coalition — primary watershed monitoring program</td><td>2014–2025</td></tr>
+      <tr><td><span class="src-dot" style="background:#2d8a4e"></span><strong>Colorado River Watch</strong></td><td>Volunteer monitoring network — long-term mainstem data</td><td>1991–2025</td></tr>
+      <tr><td><span class="src-dot" style="background:#c0392b"></span><strong>CDPHE / State</strong></td><td>Regulatory monitoring, Idarado compliance program, NPDES compliance</td><td>1970–2025</td></tr>
+      <tr><td><span class="src-dot" style="background:#7b2d8b"></span><strong>USGS</strong></td><td>Streamflow and water quality gauging stations</td><td>1909–2022</td></tr>
+      <tr><td><span class="src-dot" style="background:#e67e22"></span><strong>Town of Telluride PW</strong></td><td>Urban runoff and wastewater effluent monitoring</td><td>Historical</td></tr>
+      <tr><td><span class="src-dot" style="background:#6d4c41"></span><strong>Idarado Mining</strong></td><td>Historical compliance monitoring</td><td>Historical</td></tr>
+      <tr><td><span class="src-dot" style="background:#00897b"></span><strong>Colorado Parks &amp; Wildlife</strong></td><td>Fisheries-related water quality monitoring</td><td>2013–2014</td></tr>
+      <tr><td><span class="src-dot" style="background:#546e7a"></span><strong>EPA / NARS</strong></td><td>National Aquatic Resources Survey</td><td>Various</td></tr>
+    </table>
+    <p style="font-size:11.5px;color:var(--muted);margin-top:6px">All data compiled from CDPHE CDSN/AWQMS and EPA Water Quality Exchange (WQX/STORET). Database compiled May 2026. This dashboard is a draft for board and stakeholder review.</p>
+  </div>
+</div>
+</div><!-- end guide -->
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+// ── STATE ──
+let D=null, MAP=null, selSite=null, sChart=null, pvChart=null, pvCharts=[], markers={}, pvSel=new Set(), pvRelevant=[], orgVis={};
+let pvMiniMap=null, pvMM_huc10Layer=null, pvMM_huc12Layer=null, pvMM_siteLayer=null, pvMM_huc8Layer=null;
+let GEO_HUC10=null, GEO_HUC12=null, GEO_HUC8=null;
+
+// Segment narrative names from 5 CCR 1002-35, derived from stream_standards_san_miguel.geojson DESC field.
+const SEG_NAMES={
+  'COGUSM01_A':'Tributaries within Lizard Head / Mt. Sneffels Wilderness',
+  'COGUSM02_B':'Bear Creek',
+  'COGUSM02_C':'Cornet Creek',
+  'COGUSM02_D':'Howard Fork above Swamp Canyon',
+  'COGUSM02_E':'Muddy Creek and tributaries',
+  'COGUSM02_F':'Tributaries to San Miguel R. — source to Leopard Creek (excl. Bear, Cornet, Muddy, Howard Fork above Swamp Canyon)',
+  'COGUSM03a_A':'San Miguel R. mainstem — Bridal Veil/Ingram confluence to above Marshall Creek',
+  'COGUSM03b_A':'San Miguel R. mainstem — above Marshall Creek to above South Fork confluence',
+  'COGUSM04a_A':'San Miguel R. mainstem — Leopard Creek to below CC ditch',
+  'COGUSM04a_B':'San Miguel R. mainstem — South Fork to Leopard Creek',
+  'COGUSM04b_A':'San Miguel R. mainstem — below CC ditch to below Naturita Creek',
+  'COGUSM05a_A':'San Miguel R. mainstem — below Naturita Creek to Coal Canyon',
+  'COGUSM05b_A':'San Miguel R. mainstem — below Coal Creek to Dolores confluence',
+  'COGUSM06a_A':'Ingram Creek — source to San Miguel R.',
+  'COGUSM06b_A':'Marshall Creek — source to San Miguel R.',
+  'COGUSM07a_A':'Howard Fork mainstem — Swamp Gulch to South Fork (excl. Chapman, Iron Bog, Waterfall Creeks)',
+  'COGUSM07a_B':'Chapman Creek and tributaries',
+  'COGUSM07a_C':'Iron Bog Creek and tributaries',
+  'COGUSM07b_A':'Waterfall Creek — source to Howard Fork',
+  'COGUSM08_A':'South Fork San Miguel R. — Howard/Lake Fork confluence to San Miguel R.',
+  'COGUSM09_B':'Tributaries to San Miguel R. — below Leopard Creek to Dolores R. (within Uncompahgre NF, excl. Seg. 10a)',
+  'COGUSM09b_A':'Tabeguache Creek tributaries within Uncompahgre NF',
+  'COGUSM10a_A':'Tabeguache Creek mainstem within national forest',
+  'COGUSM10b_B':'Naturita Creek mainstem — national forest to San Miguel R.',
+  'COGUSM10c_A':'Tabeguache Creek mainstem — NF boundary to San Miguel R.',
+  'COGUSM11a_A':'Miramonte Reservoir / West Naturita Creek tributaries; Beaver and Horsefly Creek mainstems',
+  'COGUSM11b_A':'Saltado Creek — NF boundary to San Miguel R.',
+  'COGUSM12a_B':'Stink Hole Draw',
+  'COGUSM12a_D':'Specie Creek and tributaries',
+  'COGUSM12a_E':'McKenzie Creek',
+  'COGUSM12a_F':'Tributaries to Naturita Creek; tributaries to San Miguel R. — below Leopard Creek to above Horsefly Creek',
+  'COGUSM12b_C':'Tributaries to San Miguel R. — above Horsefly Creek to Dolores R.',
+  'COGUSM12b_D':'Maverick Draw mainstem',
+  'COGUSM12b_E':'Maverick Draw tributaries',
+  'COGUSM12b_F':'Coal Canyon and tributaries (excl. Second Park N/S)',
+  'COGUSM12b_G':'Tuttle Draw and tributaries',
+  'COGUSM12b_H':'Dry Creek and tributaries',
+  'COGUSM12b_I':'Second Park Tributary South',
+  'COGUSM12b_J':'Second Park Tributary North',
+  'COGUSM12c_A':'Calamity Draw below Lincoln Street',
+  'COGUSM12d_A':'Tabeguache Creek tributaries — NF boundary to San Miguel R.',
+  'COGULD02_C':'Dolores R. mainstem — East Paradox Creek to San Miguel R.',
+};
+
+// ── LOAD ──
+fetch('app_data.json').then(r=>r.json()).then(data=>{
+  D=data;
+  document.getElementById('ld').style.display='none';
+  // Default site-view year range to last 30 years
+  const curYr=new Date().getFullYear();
+  const yrFromEl=document.getElementById('s-yr-from');
+  if(yrFromEl) yrFromEl.value=Math.max(+yrFromEl.min, curYr-30);
+  initMap(); initMapYearFilter(); initOrgLegend(); initSelects(); initPVOrg(); initPVSeg();
+}).catch(e=>{
+  document.getElementById('ld').innerHTML=`<p style="color:red;padding:20px">Error loading app_data.json:<br>${e.message}<br><br>Make sure both index.html and app_data.json are in the same folder.</p>`;
+});
+
+// ── VIEW ──
+function showView(v,btn){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tb').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(v==='site'&&MAP) setTimeout(()=>MAP.invalidateSize(),80);
+  if(v==='param'&&D){ pvBuild(); setTimeout(()=>initPVMiniMap(),80); }
+}
+
+// ── MAP ──
+function initOrgLegend(){
+  Object.keys(D.org_colors).forEach(k=>{orgVis[k]=true;});
+  const panel=document.getElementById('org-legend');
+  panel.innerHTML='<div class="oleg-hd">Organizations</div>'+
+    Object.entries(D.org_labels).map(([k,v])=>
+      `<div class="oleg-row" data-org="${esc(k)}" onclick="toggleOrg(this,'${esc(k)}')">
+        <span class="oleg-dot" style="background:${D.org_colors[k]||'#9e9e9e'}"></span>
+        <span class="oleg-name">${esc(v)}</span>
+      </div>`
+    ).join('');
+}
+function toggleOrg(el,orgKey){
+  orgVis[orgKey]=!orgVis[orgKey];
+  el.classList.toggle('off',!orgVis[orgKey]);
+  D.sites.forEach(site=>{
+    const m=markers[site.id];
+    if(!m) return;
+    const show=site.orgs.some(o=>orgVis[o]!==false);
+    if(show){if(!MAP.hasLayer(m))m.addTo(MAP);}
+    else{if(MAP.hasLayer(m))m.remove();}
+  });
+}
+let MAP_YR_MIN=1900, MAP_YR_MAX=2025, MAP_YR_FROM=1900, MAP_YR_TO=2025;
+
+function initMapYearFilter(){
+  const years=D.sites.flatMap(s=>{
+    const m=s.years&&s.years.match(/(\d{4})\D+(\d{4})/);
+    return m?[parseInt(m[1]),parseInt(m[2])]:[];
+  });
+  if(!years.length) return;
+  MAP_YR_MIN=Math.min(...years);
+  MAP_YR_MAX=Math.max(...years);
+  MAP_YR_FROM=MAP_YR_MIN;
+  MAP_YR_TO=MAP_YR_MAX;
+  const fromEl=document.getElementById('map-yr-from');
+  const toEl=document.getElementById('map-yr-to');
+  [fromEl,toEl].forEach(el=>{el.min=MAP_YR_MIN;el.max=MAP_YR_MAX;el.step=1;});
+  fromEl.value=MAP_YR_FROM;
+  toEl.value=MAP_YR_TO;
+  updateMapYrTrack();
+}
+
+function onMapYrInput(which){
+  const fromEl=document.getElementById('map-yr-from');
+  const toEl=document.getElementById('map-yr-to');
+  let from=parseInt(fromEl.value), to=parseInt(toEl.value);
+  if(from>to){ if(which==='from'){fromEl.value=to;from=to;}else{toEl.value=from;to=from;} }
+  MAP_YR_FROM=from; MAP_YR_TO=to;
+  updateMapYrTrack();
+  filterMapByYear();
+}
+
+function updateMapYrTrack(){
+  const span=MAP_YR_MAX-MAP_YR_MIN||1;
+  const l=((MAP_YR_FROM-MAP_YR_MIN)/span*100).toFixed(2)+'%';
+  const w=((MAP_YR_TO-MAP_YR_FROM)/span*100).toFixed(2)+'%';
+  const fill=document.getElementById('map-yr-fill');
+  if(fill){fill.style.left=l;fill.style.width=w;}
+  const lbl=document.getElementById('map-yr-label');
+  if(lbl) lbl.textContent=MAP_YR_FROM===MAP_YR_TO?`${MAP_YR_FROM}`:`${MAP_YR_FROM} – ${MAP_YR_TO}`;
+  // When handles overlap, bring the from-slider forward so it can be dragged back left
+  const fromEl=document.getElementById('map-yr-from');
+  const toEl=document.getElementById('map-yr-to');
+  if(fromEl&&toEl){
+    fromEl.style.zIndex=MAP_YR_FROM>=MAP_YR_TO?'3':'1';
+    toEl.style.zIndex=MAP_YR_FROM>=MAP_YR_TO?'1':'3';
+  }
+}
+
+function filterMapByYear(){
+  D.sites.forEach(site=>{
+    const mk=markers[site.id];
+    if(!mk) return;
+    const m=site.years&&site.years.match(/(\d{4})\D+(\d{4})/);
+    const visible=m?parseInt(m[1])<=MAP_YR_TO&&parseInt(m[2])>=MAP_YR_FROM:true;
+    if(visible){if(!MAP.hasLayer(mk)) mk.addTo(MAP);}
+    else{if(MAP.hasLayer(mk)) mk.remove();}
+  });
+}
+
+function initMap(){
+  MAP=L.map('map',{zoomControl:true}).setView([37.95,-108.3],9);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'©OpenStreetMap ©CartoDB',maxZoom:19
+  }).addTo(MAP);
+  // HUC8 watershed boundary — load once, sits below site markers
+  fetch('huc8_sanmiguel.geojson').then(r=>r.json()).then(gj=>{
+    GEO_HUC8=gj;
+    L.geoJSON(gj,{
+      style:{color:'#1a6bb5',weight:2.5,fillColor:'#1a6bb5',fillOpacity:0.04,dashArray:'6,4'},
+      interactive:false
+    }).addTo(MAP);
+  }).catch(e=>console.warn('HUC8 load failed',e));
+  D.sites.forEach(site=>{
+    const col=site.color||'#9e9e9e';
+    const m=L.circleMarker([site.lat,site.lon],{
+      radius:5.5,fillColor:col,color:'#fff',weight:1.5,opacity:1,fillOpacity:0.88
+    }).addTo(MAP);
+    const badges=site.orgs.slice(0,3).map(o=>
+      `<span style="background:${D.org_colors[o]||'#9e9e9e'};padding:1px 5px;border-radius:8px;font-size:9.5px;color:#fff;font-weight:600">${esc(D.org_labels[o]||o)}</span>`
+    ).join(' ');
+    const is303d=site.cat==='5';
+    const hasTmdl=site.analyte&&site.analyte.includes('TMDL');
+    const is4a=site.cat==='4a'&&hasTmdl;
+    const impairLabel=is303d?(hasTmdl?'303(d)/TMDL':'303(d) impaired'):is4a?'TMDL (addressed)':'';
+    const impairStyle=is4a?'color:#e67e22':'';
+    const impairHtml=(is303d||is4a)&&site.analyte?`<div class="impair-note" style="${impairStyle}">⚠ ${impairLabel}: ${site.analyte.replace(/303\(d\) : |TMDL : |M&E : /g,'').replace(/; /g,', ').slice(0,80)}</div>`:'';
+    m.bindPopup(`
+      <div class="pn">${esc(site.name)}</div>
+      <div class="pm">${esc(site.id)} · Segment: ${esc(site.seg||'—')} · ${esc(site.years)}</div>
+      <div class="po">${badges}</div>
+      ${impairHtml}
+      <div style="font-size:10.5px;color:#888;margin-bottom:5px">${site.n.toLocaleString()} measurements · ${site.params.length} parameters</div>
+      <button class="pb2" onclick="selectSite('${esc(site.id)}')">View data →</button>
+    `,{maxWidth:280});
+    m.on('click',()=>{m.openPopup();});
+    markers[site.id]=m;
+  });
+}
+
+function selectSite(sid){
+  MAP.closePopup();
+  selSite=D.sites.find(s=>s.id===sid);
+  if(!selSite) return;
+  Object.values(markers).forEach(m=>m.setStyle({weight:1.5,radius:5.5}));
+  if(markers[sid]) markers[sid].setStyle({weight:3,radius:9,color:'#1c1a17'});
+  document.getElementById('ph').style.display='none';
+  const sc=document.getElementById('sc');
+  sc.style.display='flex'; sc.style.flexDirection='column'; sc.style.height='100%'; sc.style.overflow='hidden';
+  document.getElementById('sn').textContent=selSite.name;
+  document.getElementById('sm').textContent=`${sid} · ${selSite.seg||'No segment'} · ${selSite.aql||''} · ${selSite.years}`;
+  // 303(d) impairment notice
+  const so303=document.getElementById('so-303d');
+  if(so303){
+    const hasTmdl=selSite.analyte&&selSite.analyte.includes('TMDL');
+    const is303d=selSite.cat==='5';
+    const is4a=selSite.cat==='4a'&&hasTmdl;
+    if((is303d||is4a)&&selSite.analyte){
+      const analStr=selSite.analyte.replace(/303\(d\) : |TMDL : |M&E : /g,'').replace(/; /g,' · ');
+      const label=is303d?(hasTmdl?'303(d)/TMDL impaired':'Reg 93 303(d) impaired'):'TMDL established';
+      const cls=is4a?'impair-note cat4a':'impair-note';
+      so303.innerHTML=`<div class="${cls}" style="margin-bottom:6px">⚠ <strong>${label}</strong> — ${esc(analStr)}</div>`;
+    } else { so303.innerHTML=''; }
+  }
+  document.getElementById('so').innerHTML=selSite.orgs.slice(0,6).map(o=>
+    `<span class="ob" style="background:${D.org_colors[o]||'#9e9e9e'}">${esc(D.org_labels[o]||o)}</span>`
+  ).join('');
+  const ps=document.getElementById('ps');
+  ps.innerHTML='';
+  const groups={};
+  selSite.params.forEach(p=>{const g=D.param_config[p]?.group||'Other';if(!groups[g])groups[g]=[];groups[g].push(p);});
+  ['Metals','Physical','Biological','Inorganic','Other'].forEach(g=>{
+    if(!groups[g]) return;
+    const og=document.createElement('optgroup'); og.label=g;
+    groups[g].forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);});
+    ps.appendChild(og);
+  });
+  if(selSite.params.length) renderSite();
+}
+
+// ── Traffic-light zone shading ──────────────────────────────────────────────
+const ZONE_GREEN='rgba(16,185,129,0.10)';
+const ZONE_AMBER='rgba(245,158,11,0.14)';
+const ZONE_RED  ='rgba(220,38,38,0.10)';
+
+const ZONE_PLUGIN={
+  id:'zoneShading',
+  beforeDraw(chart){
+    const zones=chart.config._zones;
+    if(!zones||!zones.length) return;
+    const {ctx,chartArea:{left,right,top,bottom},scales:{y}}=chart;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left,top,right-left,bottom-top);
+    ctx.clip();
+    zones.forEach(({color,yMin,yMax})=>{
+      const px0=yMin===-Infinity?bottom:Math.min(bottom,Math.max(top,y.getPixelForValue(yMin)));
+      const px1=yMax===Infinity ?top   :Math.min(bottom,Math.max(top,y.getPixelForValue(yMax)));
+      const pTop=Math.min(px0,px1), pBot=Math.max(px0,px1);
+      ctx.fillStyle=color;
+      ctx.fillRect(left,pTop,right-left,pBot-pTop);
+    });
+    ctx.restore();
+  }
+};
+
+function computeTrafficZones(stds,isMin){
+  // pH / range type
+  const rangeLo=stds.find(s=>s.type==='range'&&s.bound==='lower');
+  const rangeHi=stds.find(s=>s.type==='range'&&s.bound==='upper');
+  if(rangeLo||rangeHi){
+    const lo=rangeLo?.value??-Infinity;
+    const hi=rangeHi?.value??Infinity;
+    const zones=[];
+    if(lo!==-Infinity) zones.push({color:ZONE_AMBER,yMin:-Infinity,yMax:lo});
+    zones.push({color:ZONE_GREEN,yMin:lo,yMax:hi});
+    if(hi!==Infinity)  zones.push({color:ZONE_AMBER,yMin:hi,yMax:Infinity});
+    return zones;
+  }
+  const aVal=stds.find(s=>s.type==='acute')?.value;
+  const cVal=stds.find(s=>s.type==='chronic')?.value;
+  if(aVal==null&&cVal==null) return [];
+  if(isMin){
+    // Lower is worse (DO) — acute < chronic
+    const zones=[];
+    if(aVal!=null){
+      zones.push({color:ZONE_RED,  yMin:-Infinity,yMax:aVal});
+      if(cVal!=null){
+        zones.push({color:ZONE_AMBER,yMin:aVal,yMax:cVal});
+        zones.push({color:ZONE_GREEN,yMin:cVal,yMax:Infinity});
+      } else {
+        zones.push({color:ZONE_GREEN,yMin:aVal,yMax:Infinity});
+      }
+    } else {
+      zones.push({color:ZONE_AMBER,yMin:-Infinity,yMax:cVal});
+      zones.push({color:ZONE_GREEN,yMin:cVal,yMax:Infinity});
+    }
+    return zones;
+  } else {
+    // Higher is worse — acute > chronic
+    const zones=[];
+    if(aVal!=null){
+      zones.push({color:ZONE_RED,  yMin:aVal,yMax:Infinity});
+      if(cVal!=null){
+        zones.push({color:ZONE_AMBER,yMin:cVal,yMax:aVal});
+        zones.push({color:ZONE_GREEN,yMin:-Infinity,yMax:cVal});
+      } else {
+        zones.push({color:ZONE_GREEN,yMin:-Infinity,yMax:aVal});
+      }
+    } else {
+      zones.push({color:ZONE_AMBER,yMin:cVal,yMax:Infinity});
+      zones.push({color:ZONE_GREEN,yMin:-Infinity,yMax:cVal});
+    }
+    return zones;
+  }
+}
+
+function renderSite(){
+  if(!selSite) return;
+  const param=document.getElementById('ps').value;
+  const yrFrom=+document.getElementById('s-yr-from').value;
+  const yrTo=+document.getElementById('s-yr-to').value;
+  const cdata=D.chart[selSite.id];
+  const allRecs=(cdata&&cdata[param])||[];
+  const recs=allRecs.filter(r=>{if(!r.d)return false;const y=+r.d.slice(0,4);return y>=yrFrom&&y<=yrTo&&(r.nd||r.v!=null);});
+  const nd=document.getElementById('nd');
+  const cw=document.getElementById('cw');
+  const svLeg=document.getElementById('sv-legend');
+  if(!recs.length){
+    nd.style.display='block';cw.style.display='none';svLeg.style.display='none';
+    document.getElementById('si').style.display='none';document.getElementById('hn').textContent='';return;
+  }
+  nd.style.display='none';cw.style.display='block';
+  if(sChart){sChart.destroy();sChart=null;}
+  const seg=selSite.seg;
+  const idaradoSeg=seg==='COGUSM03a_A'||seg==='COGUSM03b_A';
+  const rawStds=(D.standards[seg]&&D.standards[seg][param])||[];
+  const stds=rawStds.filter(s=>(s.type==='consent_decree'||s.type==='consent_decree_context')?idaradoSeg:true);
+  const MIN_DIRECTION=new Set(['Dissolved Oxygen']);
+  const isMin=MIN_DIRECTION.has(param);
+  const isHardness=D.param_config[param]?.hardness_based||false;
+  const orgMap={};
+  recs.forEach(r=>{if(!orgMap[r.o])orgMap[r.o]=[];orgMap[r.o].push(r);});
+  // Compute exceedances
+  let acuteEx,chronEx;
+  if(isMin){
+    const aStd=stds.find(s=>s.type==='acute')?.value;
+    const cStd=stds.find(s=>s.type==='chronic')?.value;
+    acuteEx=aStd!=null?recs.filter(r=>!r.nd&&r.v<aStd):[];
+    chronEx=cStd!=null?recs.filter(r=>!r.nd&&r.v<cStd&&!(aStd!=null&&r.v<aStd)):[];
+  } else {
+    acuteEx=recs.filter(r=>r.ex_acute&&!r.nd);
+    chronEx=recs.filter(r=>r.ex_chronic&&!r.ex_acute&&!r.nd);
+  }
+  const cdEx=idaradoSeg?recs.filter(r=>r.ex_cd&&!r.nd):[];
+  const hasND=recs.some(r=>r.nd);
+  // Compute traffic-light zones from standards
+  const zones=computeTrafficZones(stds,isMin);
+  // Build legend — zone swatches + org data-source badges (all dots uniform color)
+  const orgs=Object.keys(orgMap);
+  const legParts=[];
+  const DOT_COL='#334155';
+  // Zone swatches
+  const hasGreen=zones.some(z=>z.color===ZONE_GREEN);
+  const hasAmber=zones.some(z=>z.color===ZONE_AMBER);
+  const hasRed  =zones.some(z=>z.color===ZONE_RED);
+  if(hasGreen) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(16,185,129,0.45)"></span>Attaining</span>`);
+  if(hasAmber) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(245,158,11,0.55)"></span>${isMin?'Below chronic std':'Chronic exceedance'}</span>`);
+  if(hasRed)   legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(220,38,38,0.40)"></span>${isMin?'Below acute std':'Acute exceedance'}</span>`);
+  // ROD consent-decree context (Idarado only — no shading, just note in legend)
+  if(idaradoSeg&&stds.some(s=>s.type==='consent_decree')) legParts.push(`<span class="lgi"><span class="lg-dot" style="background:#92400e"></span>ROD target (dashed line)</span>`);
+  // Data-source (org) entries — uniform dot color since zones handle status
+  orgs.forEach(o=>{
+    const hasND=orgMap[o].some(r=>r.nd);
+    legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${DOT_COL}"></span>${esc(D.org_labels[o]||o)}</span>`);
+    if(hasND) legParts.push(`<span class="lgi"><svg width="10" height="9" style="flex-shrink:0;margin-right:2px"><polygon points="5,1 9.5,8.5 0.5,8.5" fill="${DOT_COL}99"/></svg>${esc(D.org_labels[o]||o)} (ND)</span>`);
+  });
+  svLeg.innerHTML=legParts.join('');
+  svLeg.style.display='flex';
+  // Build chart datasets — ALL dots uniform dark slate, zone shading carries status info
+  const PT_R=4.5, PT_H=7;
+  const datasets=[];
+  Object.entries(orgMap).forEach(([org,pts])=>{
+    const normals=pts.filter(r=>!r.nd);
+    const nondetects=pts.filter(r=>r.nd);
+    if(normals.length) datasets.push({
+      label:D.org_labels[org]||org,
+      data:normals.map(r=>({x:r.d,y:r.v,h:r.h_src})),
+      borderColor:DOT_COL,backgroundColor:DOT_COL,
+      pointRadius:PT_R,pointHoverRadius:PT_H,
+      borderWidth:0,showLine:false,
+    });
+    if(nondetects.length) datasets.push({
+      label:(D.org_labels[org]||org)+' (non-detect)',
+      data:nondetects.map(r=>({x:r.d,y:r.v})),
+      borderColor:DOT_COL+'88',backgroundColor:DOT_COL+'88',
+      pointRadius:PT_R,pointHoverRadius:PT_H,pointStyle:'triangle',
+      borderWidth:0,showLine:false,
+    });
+  });
+  datasets.push(...buildStdLines(stds,recs));
+  const unit=recs[0]?.u||'';
+  const ctx=document.getElementById('mc').getContext('2d');
+  sChart=new Chart(ctx,{
+    type:'scatter',data:{datasets},
+    _zones:zones,
+    plugins:[ZONE_PLUGIN],
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          const d=c.raw;
+          const hNote=d.h?` [H src: ${d.h}]`:'';
+          return `${c.dataset.label}: ${d.y!=null?d.y+' '+unit:'Non-detect'} (${d.x})${hNote}`;
+        }}}
+      },
+      scales:{
+        x:{type:'time',time:{unit:'year',displayFormats:{year:'yyyy'}},grid:{color:'#efefef'},ticks:{font:{size:10.5},maxRotation:0,autoSkip:true,maxTicksLimit:10}},
+        y:{title:{display:true,text:unit,font:{size:10.5}},grid:{color:'#efefef'},ticks:{font:{size:10.5}},beginAtZero:false}
+      }
+    }
+  });
+  const hn=document.getElementById('hn');
+  if(isHardness){
+    const medH=stds.find(s=>s.hardness_used)?.hardness_used;
+    hn.textContent=medH?`TVS line calculated at segment median hardness ${medH} mg/L CaCO₃. Individual exceedance flags use same-day or nearby hardness where available.`:'Hardness-based standard (TVS). Exceedance flags use measured hardness where available.';
+  } else { hn.textContent=''; }
+  renderStdInfo(stds,param);
+}
+
+function buildStdLines(stds,recs){
+  if(!stds.length||!recs.length) return [];
+  const dates=recs.map(r=>r.d).sort();
+  const xMin=dates[0],xMax=dates[dates.length-1];
+  const STYLES={
+    'acute':          {col:'#dc2626',dash:[6,3]},
+    'chronic':        {col:'#2563eb',dash:[5,3]},
+    'consent_decree': {col:'#92400e',dash:[8,4]},
+    'consent_decree_context':{col:'#b45309',dash:[6,4]},
+    'epa_reference':  {col:'#16a34a',dash:[4,4]},
+    'water_supply':   {col:'#059669',dash:[4,4]},
+    'range':          {col:'#7c3aed',dash:[3,3]},
+  };
+  const seen=new Set(), out=[];
+  stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))).forEach(s=>{
+    const k=`${s.type}_${s.value}`;
+    if(seen.has(k)) return; seen.add(k);
+    const st=STYLES[s.type]||{col:'#888',dash:[4,4]};
+    const frac=s.frac&&!['nan','None',''].includes(s.frac)?` (${s.frac})`:'';
+    const rangeLabel=s.bound==='lower'?'Lower bound':s.bound==='upper'?'Upper bound':'Range';
+    const typeLabel={'acute':'Acute std','chronic':'Chronic std','consent_decree':'ROD target','consent_decree_context':'ROD context','epa_reference':'EPA ref','water_supply':'Water supply std','range':rangeLabel}[s.type]||s.type;
+    out.push({
+      label:`${typeLabel}${frac}: ${s.value} ${s.unit}`,
+      data:[{x:xMin,y:s.value},{x:xMax,y:s.value}],
+      borderColor:st.col,borderWidth:1.5,borderDash:st.dash,
+      pointRadius:0,showLine:true,tension:0,type:'line',
+    });
+  });
+  return out;
+}
+
+function renderStdInfo(stds,param){
+  const si=document.getElementById('si');
+  if(!stds.length){si.style.display='none';return;}
+  si.style.display='block';
+  const MIN_DIRECTION=new Set(['Dissolved Oxygen']);
+  const isMin=MIN_DIRECTION.has(param);
+  const TAGS={
+    'acute':'<span class="tg tg-a">ACUTE</span>',
+    'chronic':'<span class="tg tg-c">CHRONIC</span>',
+    'consent_decree':'<span class="tg tg-cd">ROD TARGET</span>',
+    'consent_decree_context':'<span class="tg tg-cd">ROD CONTEXT</span>',
+    'epa_reference':'<span class="tg tg-epa">EPA REFERENCE</span>',
+    'water_supply':'<span class="tg tg-ws">WATER SUPPLY</span>',
+    'range_lower':'<span class="tg tg-rng">LOWER BOUND</span>',
+    'range_upper':'<span class="tg tg-rng">UPPER BOUND</span>',
+  };
+  const getTag=s=>s.type==='range'?TAGS[`range_${s.bound}`]||'<span class="tg tg-rng">RANGE</span>':TAGS[s.type]||`<span class="tg">${s.type}</span>`;
+  const dir=isMin?'< ':'';
+  document.getElementById('sr-rows').innerHTML=stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))).map(s=>{
+    const tag=getTag(s);
+    const reg93=s.reg93&&s.reg93!=='nan'&&s.reg93!==''?`<span class="tg tg-tmdl" title="Reg 93 impairment">303(d)</span>`:'';
+    const frac=s.frac&&!['nan','None',''].includes(s.frac)?` <em>${s.frac}</em>`:'';
+    const hNote=s.is_hardness&&s.hardness_used?` <span style="font-size:10px;color:var(--muted)">[H=${s.hardness_used} mg/L]</span>`:'';
+    const regNote=s.reg&&s.reg!=='nan'?`<div style="font-size:10px;color:var(--muted);margin-top:1px">${s.reg}</div>`:'';
+    return `<div class="sr">
+      <span class="sl" style="flex-direction:column;align-items:flex-start">${tag}${reg93}${frac}${hNote}${regNote}</span>
+      <span class="sv">${dir}${s.value} ${s.unit}</span>
+    </div>`;
+  }).join('');
+  // Parameter-specific footnote
+  const srNote=document.getElementById('sr-note');
+  if(param==='pH'){
+    const regLabel=stds.find(s=>s.reg)?.reg||'Reg 31 Table I';
+    srNote.innerHTML=`<p class="sr-footnote">The range 6.5–9.0 S.U. represents the aquatic life use standard for pH under ${regLabel}. Values outside this range indicate potential impairment of aquatic life uses.</p>`;
+  } else if(D.param_config[param]?.hardness_based){
+    const H=stds.find(s=>s.is_hardness)?.hardness_used;
+    srNote.innerHTML=H?`<p class="sr-footnote">Reference lines calculated at segment geometric mean hardness (${H} mg/L CaCO₃) per Reg 31 Table III. Per-sample exceedance flags use measured hardness from the same activity where available.</p>`:'';
+  } else {
+    srNote.innerHTML='';
+  }
+}
+
+// ── PARAM VIEW ──
+const PV_PALETTE=['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#a65628','#f781bf','#555555','#1b9e77','#d95f02'];
+const PV_GROUP_OPTS=[
+  {value:'__all__',   label:'— All Parameters —', group:null},
+  {value:'__metals__',label:'— All Metals —',      group:'Metals'},
+  {value:'__nutrients__',label:'— All Inorganic —',group:'Inorganic'},
+  {value:'__physical__', label:'— All Physical —', group:'Physical'},
+];
+function pvGroupParams(val){
+  // Returns array of param names for a sentinel value, or null for a real param.
+  if(!val.startsWith('__')) return null;
+  const cfg=PV_GROUP_OPTS.find(o=>o.value===val);
+  if(!cfg) return null;
+  if(!cfg.group) return Object.keys(D.param_config);
+  return Object.entries(D.param_config).filter(([,c])=>c.group===cfg.group).map(([p])=>p);
+}
+function initSelects(){
+  const pvp=document.getElementById('pv-p');
+  const ps=document.getElementById('ps');
+  // Group quick-select options
+  const og0=document.createElement('optgroup'); og0.label='Quick Select';
+  PV_GROUP_OPTS.forEach(({value,label})=>{
+    const o=document.createElement('option');o.value=value;o.textContent=label;og0.appendChild(o);
+  });
+  pvp.appendChild(og0);
+  const groups={};
+  Object.entries(D.param_config).forEach(([p,cfg])=>{
+    if(!groups[cfg.group])groups[cfg.group]=[];groups[cfg.group].push(p);
+  });
+  ['Metals','Physical','Biological','Inorganic'].forEach(g=>{
+    if(!groups[g]) return;
+    [pvp].forEach(sel=>{
+      const og=document.createElement('optgroup');og.label=g;
+      groups[g].forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);});
+      sel.appendChild(og);
+    });
+  });
+  pvp.value='Zinc';
+}
+function initPVOrg(){
+  const sel=document.getElementById('pv-org');
+  Object.entries(D.org_labels).forEach(([k,v])=>{
+    const o=document.createElement('option');o.value=k;o.textContent=v;sel.appendChild(o);
+  });
+}
+function initPVSeg(){
+  // HUC10
+  const huc10s=[...new Set(D.sites.map(s=>s.huc10).filter(Boolean))].sort();
+  const h10=document.getElementById('pv-huc10');
+  huc10s.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;h10.appendChild(o);});
+  // HUC12 and Segment populated dynamically via cascade
+  pvPopulateHuc12();
+  pvPopulateSeg();
+}
+function pvPopulateHuc12(){
+  const h10F=document.getElementById('pv-huc10').value;
+  const huc12s=[...new Set(D.sites.filter(s=>!h10F||s.huc10===h10F).map(s=>s.huc12).filter(Boolean))].sort();
+  const sel=document.getElementById('pv-huc12');
+  sel.innerHTML='<option value="">All subwatersheds</option>';
+  huc12s.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;sel.appendChild(o);});
+}
+function pvPopulateSeg(){
+  const h10F=document.getElementById('pv-huc10').value;
+  const h12F=document.getElementById('pv-huc12').value;
+  const segs=[...new Set(D.sites.filter(s=>(!h10F||s.huc10===h10F)&&(!h12F||s.huc12===h12F)).map(s=>s.seg).filter(Boolean))].sort();
+  const sel=document.getElementById('pv-seg');
+  sel.innerHTML='<option value="">All segments</option>';
+  segs.forEach(seg=>{const o=document.createElement('option');o.value=seg;o.textContent=SEG_NAMES[seg]?`${SEG_NAMES[seg]} — ${seg}`:seg;sel.appendChild(o);});
+}
+function pvOnHuc10Change(){
+  document.getElementById('pv-huc12').value='';
+  document.getElementById('pv-seg').value='';
+  pvPopulateHuc12();
+  pvPopulateSeg();
+  pvBuild(true);
+}
+function pvOnHuc12Change(){
+  document.getElementById('pv-seg').value='';
+  pvPopulateSeg();
+  pvBuild(true);
+}
+async function initPVMiniMap(){
+  if(pvMiniMap) return;
+  if(!GEO_HUC10||!GEO_HUC12||!GEO_HUC8){
+    try{
+      const [r10,r12,r8]=await Promise.all([
+        fetch('huc10_sanmiguel.geojson').then(r=>r.json()),
+        fetch('huc12_sanmiguel.geojson').then(r=>r.json()),
+        GEO_HUC8 ? Promise.resolve(GEO_HUC8) : fetch('huc8_sanmiguel.geojson').then(r=>r.json()),
+      ]);
+      GEO_HUC10=r10; GEO_HUC12=r12; GEO_HUC8=r8;
+    } catch(e){console.warn('Could not load HUC GeoJSON',e);}
+  }
+  pvMiniMap=L.map('pv-minimap',{
+    zoomControl:false,attributionControl:false,
+    scrollWheelZoom:true,doubleClickZoom:true,
+    dragging:true,boxZoom:false,keyboard:false,touchZoom:true,
+  }).setView([37.95,-108.3],8);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(pvMiniMap);
+  // HUC8 watershed outline — permanent, behind everything
+  if(GEO_HUC8){
+    pvMM_huc8Layer=L.geoJSON(GEO_HUC8,{
+      style:{color:'#1a6bb5',weight:2,fillColor:'#1a6bb5',fillOpacity:0.05,dashArray:'6,4'},
+      interactive:false
+    }).addTo(pvMiniMap);
+  }
+  updatePVMiniMap();
+}
+function updatePVMiniMap(){
+  if(!pvMiniMap) return;
+  const h10F=document.getElementById('pv-huc10').value;
+  const h12F=document.getElementById('pv-huc12').value;
+  // All pvRelevant sites shown; pvSel (chip-selected) sites shown larger
+  const relevantIds=new Set(pvRelevant.map(s=>s.id));
+  // Rebuild site dots layer
+  if(pvMM_siteLayer){pvMM_siteLayer.remove();pvMM_siteLayer=null;}
+  const siteDots=[];
+  D.sites.forEach(site=>{
+    if(!site.lat||!site.lon||site.lon===-180) return;
+    const inRelevant=relevantIds.has(site.id);
+    const inSel=pvSel.has(site.id);
+    if(!inRelevant) return; // hide sites outside current filter entirely
+    siteDots.push(L.circleMarker([site.lat,site.lon],{
+      radius:inSel?6:3.5,
+      fillColor:site.color||'#9e9e9e',
+      color:'#fff',weight:inSel?1.5:0.8,
+      fillOpacity:inSel?1:0.45,opacity:1,
+    }));
+  });
+  pvMM_siteLayer=L.layerGroup(siteDots).addTo(pvMiniMap);
+  // HUC boundary layers
+  if(pvMM_huc10Layer){pvMM_huc10Layer.remove();pvMM_huc10Layer=null;}
+  if(pvMM_huc12Layer){pvMM_huc12Layer.remove();pvMM_huc12Layer=null;}
+  let fitBounds=null;
+  if(GEO_HUC10&&h10F){
+    const feats=GEO_HUC10.features.filter(f=>f.properties.name===h10F);
+    if(feats.length){
+      pvMM_huc10Layer=L.geoJSON({type:'FeatureCollection',features:feats},{
+        style:{color:'#2563eb',weight:2,fillColor:'#2563eb',fillOpacity:0.06,dashArray:'5,3'}
+      }).addTo(pvMiniMap);
+      fitBounds=pvMM_huc10Layer.getBounds();
+    }
+  }
+  if(GEO_HUC12&&h12F){
+    const feats=GEO_HUC12.features.filter(f=>f.properties.name===h12F);
+    if(feats.length){
+      pvMM_huc12Layer=L.geoJSON({type:'FeatureCollection',features:feats},{
+        style:{color:'#7c3aed',weight:2,fillColor:'#7c3aed',fillOpacity:0.12}
+      }).addTo(pvMiniMap);
+      fitBounds=pvMM_huc12Layer.getBounds();
+    }
+  }
+  if(fitBounds) pvMiniMap.fitBounds(fitBounds,{padding:[12,12]});
+  else pvMiniMap.setView([37.95,-108.3],8);
+}
+function pvBuild(resetSel=true){
+  if(!D) return;
+  const param=document.getElementById('pv-p').value;
+  const groupParams=pvGroupParams(param);
+  const orgF=document.getElementById('pv-org').value;
+  const h10F=document.getElementById('pv-huc10').value;
+  const h12F=document.getElementById('pv-huc12').value;
+  const segF=document.getElementById('pv-seg').value;
+  // pvRelevant: org/huc/seg scope only — no param filter so selected sites always stay visible
+  pvRelevant=D.sites.filter(s=>{
+    if(orgF&&!s.orgs.includes(orgF)) return false;
+    if(h10F&&s.huc10!==h10F) return false;
+    if(h12F&&s.huc12!==h12F) return false;
+    if(segF&&s.seg!==segF) return false;
+    return true;
+  });
+  const hasParam=s=>groupParams?groupParams.some(p=>s.params.includes(p)):s.params.includes(param);
+  if(resetSel){
+    pvSel.clear();
+    [...pvRelevant].filter(hasParam).sort((a,b)=>b.n-a.n).slice(0,5).forEach(s=>pvSel.add(s.id));
+  } else if(pvSel.size===0){
+    [...pvRelevant].filter(hasParam).sort((a,b)=>b.n-a.n).slice(0,5).forEach(s=>pvSel.add(s.id));
+  }
+  // else: param changed but sites are already selected — keep them
+  pvUpdateParamDropdown();
+  pvRefreshDisplay();
+  pvRender();
+  updatePVMiniMap();
+}
+function pvUpdateParamDropdown(){
+  const pvp=document.getElementById('pv-p');
+  if(pvSel.size===0){pvp.querySelectorAll('option').forEach(o=>{o.disabled=false;});return;}
+  const available=new Set([...pvSel].flatMap(sid=>D.sites.find(s=>s.id===sid)?.params||[]));
+  pvp.querySelectorAll('option').forEach(o=>{
+    if(o.value.startsWith('__')) return;
+    o.disabled=!available.has(o.value);
+  });
+}
+// ── Site dropdown ─────────────────────────────────────────────────────────────
+function pvToggleSiteDD(e){
+  e.stopPropagation();
+  const panel=document.getElementById('pv-site-panel');
+  panel.classList.toggle('open');
+  if(panel.classList.contains('open')) document.getElementById('pv-search').focus();
+}
+document.addEventListener('click',function(e){
+  const dd=document.getElementById('pv-site-dd');
+  if(dd&&!dd.contains(e.target)) document.getElementById('pv-site-panel')?.classList.remove('open');
+});
+function pvSearch(){ pvRefreshDisplay(); }
+function pvSelectAll(){
+  const search=document.getElementById('pv-search').value.toLowerCase().trim();
+  const param=document.getElementById('pv-p').value;
+  const gp=pvGroupParams(param); // null for single param, array for group
+  const hasParamData=s=>{
+    if(!D.chart[s.id]) return false;
+    const paramsToCheck=gp||[param];
+    return paramsToCheck.some(p=>D.chart[s.id][p]?.length>0);
+  };
+  const pool=search?pvRelevant.filter(s=>s.id.toLowerCase().includes(search)||s.name.toLowerCase().includes(search)):pvRelevant;
+  pool.filter(hasParamData).forEach(s=>pvSel.add(s.id));
+  pvAfterSelChange();
+}
+function pvDeselectAll(){
+  const search=document.getElementById('pv-search').value.toLowerCase().trim();
+  const pool=search?pvRelevant.filter(s=>s.id.toLowerCase().includes(search)||s.name.toLowerCase().includes(search)):pvRelevant;
+  pool.forEach(s=>pvSel.delete(s.id));
+  pvAfterSelChange();
+}
+function pvAfterSelChange(){
+  pvUpdateParamDropdown();
+  pvRefreshDisplay();
+  pvRender();
+}
+function pvRefreshDisplay(){
+  const search=document.getElementById('pv-search')?.value.toLowerCase().trim()||'';
+  const sorted=[...pvRelevant].sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true,sensitivity:'base'}));
+  const visible=search?sorted.filter(s=>s.id.toLowerCase().includes(search)||s.name.toLowerCase().includes(search)):sorted;
+  // Update button label
+  const countEl=document.getElementById('pv-site-count');
+  if(countEl) countEl.textContent=`${pvSel.size} of ${pvRelevant.length} site${pvRelevant.length!==1?'s':''} selected`;
+  // Org quick-select buttons
+  const orgKeys=[...new Set(pvRelevant.flatMap(s=>s.orgs))];
+  document.getElementById('pv-qs').innerHTML=
+    orgKeys.map(o=>`<button class="qs-btn" style="border-color:${D.org_colors[o]||'#ccc'}" onclick="pvQuickSelectOrg('${esc(o)}')">${esc(D.org_labels[o]||o)}</button>`).join('');
+  // Checkbox list
+  document.getElementById('psl').innerHTML=visible.map(s=>{
+    const col=s.color||'#9e9e9e';
+    const chk=pvSel.has(s.id)?'checked':'';
+    const hasTmdl=s.analyte&&s.analyte.includes('TMDL');
+    const is303d=s.cat==='5';
+    const is4a=s.cat==='4a'&&hasTmdl;
+    const badge=is303d?(hasTmdl?'<span class="badge-303d badge-tmdl">TMDL</span>':'<span class="badge-303d">303(d)</span>'):
+                is4a?'<span class="badge-303d badge-4a">TMDL</span>':'';
+    return `<label class="pv-cb-item">
+      <input type="checkbox" ${chk} onchange="pvToggleCb('${esc(s.id)}',this)">
+      <span class="pv-cb-dot" style="background:${col}"></span>
+      <span class="pv-cb-id">${esc(s.id)}</span>
+      <span class="pv-cb-name" title="${esc(s.name)}">${esc(s.name)}</span>
+      ${badge}
+    </label>`;
+  }).join('');
+}
+function pvQuickSelectOrg(orgKey){
+  pvSel.clear();
+  pvRelevant.filter(s=>s.orgs.includes(orgKey)).forEach(s=>pvSel.add(s.id));
+  pvAfterSelChange();
+}
+function pvToggleCb(sid,cb){
+  if(cb.checked) pvSel.add(sid); else pvSel.delete(sid);
+  const countEl=document.getElementById('pv-site-count');
+  if(countEl) countEl.textContent=`${pvSel.size} of ${pvRelevant.length} site${pvRelevant.length!==1?'s':''} selected`;
+  pvUpdateParamDropdown();
+  pvRender();
+}
+function toDisplayUnit(v,u,paramGroup){
+  const lc=(u||'').toLowerCase().trim();
+  if(paramGroup==='Metals'){
+    if(lc==='mg/l'||lc==='mg.l'||lc==='ppm') return {v:v!=null?v*1000:v,u:'µg/L'};
+    return {v,u:'µg/L'};
+  }
+  const norm={'ug/l':'µg/L','ug/L':'µg/L','µg/l':'µg/L','deg c':'°C','s.u.':'S.U.','ppm':'mg/L','mg.l':'mg/L','mg/l':'mg/L'};
+  return {v,u:norm[lc]||u||''};
+}
+function pvBuildDatasetsForParam(param,yrFrom,yrTo){
+  const MIN_DIRECTION=new Set(['Dissolved Oxygen']);
+  const isMin=MIN_DIRECTION.has(param);
+  const paramGroup=D.param_config[param]?.group||'';
+  const datasets=[],legItems=[];
+  let palIdx=0,rawUnit='';
+  pvSel.forEach(sid=>{
+    const site=D.sites.find(s=>s.id===sid);
+    if(!site) return;
+    const cdata=D.chart[sid];
+    if(!cdata||!cdata[param]) return;
+    const allRecs=cdata[param].filter(r=>{if(!r.d)return false;const y=+r.d.slice(0,4);return y>=yrFrom&&y<=yrTo&&(r.nd||r.v!=null);});
+    const recs=allRecs.filter(r=>!r.nd);
+    const nds=allRecs.filter(r=>r.nd);
+    if(!allRecs.length) return;
+    if(!rawUnit) rawUnit=recs[0]?.u||nds[0]?.u||'';
+    const col=PV_PALETTE[palIdx%PV_PALETTE.length]; palIdx++;
+    const sName=site.name.length>32?site.name.slice(0,30)+'…':site.name;
+    const cv=r=>toDisplayUnit(r.v,r.u||rawUnit,paramGroup).v;
+    let acuteExc,chronExc,normal;
+    if(isMin){
+      const siteStds=(D.standards[site.seg]&&D.standards[site.seg][param])||[];
+      const aStdRaw=siteStds.find(s=>s.type==='acute');
+      const cStdRaw=siteStds.find(s=>s.type==='chronic');
+      const aStd=aStdRaw?toDisplayUnit(aStdRaw.value,aStdRaw.unit||'mg/L',paramGroup).v:null;
+      const cStd=cStdRaw?toDisplayUnit(cStdRaw.value,cStdRaw.unit||'mg/L',paramGroup).v:null;
+      acuteExc=aStd!=null?recs.filter(r=>cv(r)<aStd):[];
+      chronExc=cStd!=null?recs.filter(r=>cv(r)<cStd&&!(aStd!=null&&cv(r)<aStd)):[];
+      const ak=new Set(acuteExc.map(r=>r.d+'|'+r.v));
+      const ck=new Set(chronExc.map(r=>r.d+'|'+r.v));
+      normal=recs.filter(r=>{const k=r.d+'|'+r.v;return !ak.has(k)&&!ck.has(k);});
+    } else {
+      normal=recs.filter(r=>!r.ex_acute&&!r.ex_chronic);
+      chronExc=recs.filter(r=>r.ex_chronic&&!r.ex_acute);
+      acuteExc=recs.filter(r=>r.ex_acute);
+    }
+    if(normal.length) datasets.push({label:sName,data:normal.map(r=>({x:r.d,y:cv(r)})),borderColor:col,backgroundColor:col+'bb',pointRadius:4,pointHoverRadius:6,pointStyle:'circle',borderWidth:0,showLine:false});
+    if(chronExc.length) datasets.push({label:sName+' (chronic exc.)',data:chronExc.map(r=>({x:r.d,y:cv(r)})),borderColor:col,backgroundColor:col+'bb',pointRadius:5,pointHoverRadius:7,pointStyle:'rectRot',borderWidth:1,showLine:false});
+    if(acuteExc.length) datasets.push({label:sName+' (acute exc.)',data:acuteExc.map(r=>({x:r.d,y:cv(r)})),borderColor:col,backgroundColor:col+'bb',pointRadius:5,pointHoverRadius:8,pointStyle:'star',borderWidth:1,showLine:false});
+    if(nds.length) datasets.push({label:sName+' (non-detect)',data:nds.map(r=>({x:r.d,y:cv(r)})),borderColor:col+'80',backgroundColor:col+'40',pointRadius:2,pointHoverRadius:4,pointStyle:'triangle',borderWidth:0,showLine:false});
+    if(allRecs.length) legItems.push({label:site.name,col});
+  });
+  const unit=toDisplayUnit(0,rawUnit,paramGroup).u;
+  const segs=[...pvSel].map(sid=>D.sites.find(s=>s.id===sid)?.seg).filter(Boolean);
+  const uSegs=[...new Set(segs)];
+  let stdNote='';
+  const isHardnessPV=D.param_config[param]?.hardness_based||false;
+  if(uSegs.length===1){
+    const idaradoSeg=uSegs[0]==='COGUSM03a_A'||uSegs[0]==='COGUSM03b_A';
+    const rawStds=(D.standards[uSegs[0]]&&D.standards[uSegs[0]][param])||[];
+    const stds=rawStds.filter(s=>{
+      if(s.type==='consent_decree'||s.type==='consent_decree_context') return idaradoSeg;
+      if(isHardnessPV&&(s.type==='acute'||s.type==='chronic')) return false;
+      return true;
+    }).map(s=>({...s,value:toDisplayUnit(s.value,s.unit||'µg/L',paramGroup).v}));
+    const allPts=datasets.flatMap(d=>d.data);
+    if(allPts.length&&stds.length){
+      const stdLines=buildStdLines(stds,allPts.map(r=>({d:r.x,v:r.y})));
+      stdLines.forEach(s=>{s._std=true;});
+      datasets.push(...stdLines);
+    }
+    stdNote=isHardnessPV?'Exceedance flags use per-activity hardness. TVS threshold line not shown — it varies per sample.':(stds.length?`Standards shown for segment ${uSegs[0]}.`:'');
+  } else if(uSegs.length>1){
+    stdNote=isHardnessPV?'Exceedance flags use per-activity hardness. Standards not shown — sites span multiple segments.':'Standards not shown — selected sites span multiple segments.';
+  }
+  return {datasets,legItems,stdNote,unit,hasData:legItems.length>0};
+}
+const PV_LEG_SYMBOLS='<div style="width:100%;height:1px;background:var(--bdr);margin:6px 0"></div><div class="li" style="gap:12px;color:var(--muted)"><span style="display:flex;align-items:center;gap:4px"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="#555"/></svg> Attaining</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="none" stroke="#555" stroke-width="1.5" transform="rotate(180,6,6)"/></svg> Non-detect</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><rect x="1" y="1" width="10" height="10" fill="#555" transform="rotate(45,6,6)"/></svg> Chronic exc.</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><text x="6" y="10" text-anchor="middle" font-size="13" fill="#555">★</text></svg> Acute exc.</span></div>';
+function pvChartOptions(unit,small){
+  const fs=small?10:10.5; const tl=small?8:10;
+  return {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw.y!=null?Number(c.raw.y.toPrecision(4))+' '+unit:'Non-detect'} (${c.raw.x})`}}},scales:{x:{type:'time',time:{unit:'year',displayFormats:{year:'yyyy'}},grid:{color:'#efefef'},ticks:{font:{size:fs},maxRotation:0,autoSkip:true,maxTicksLimit:tl}},y:{title:{display:true,text:unit,font:{size:fs}},grid:{color:'#efefef'},ticks:{font:{size:fs}}}}};
+}
+function pvRender(){
+  if(!D) return;
+  const param=document.getElementById('pv-p').value;
+  const gp=pvGroupParams(param);
+  const yrFrom=+document.getElementById('pv-yf').value;
+  const yrTo=+document.getElementById('pv-yt').value;
+  if(pvChart){pvChart.destroy();pvChart=null;}
+  pvCharts.forEach(c=>c.destroy()); pvCharts=[];
+  const pvci=document.getElementById('pvci');
+  const pvciM=document.getElementById('pvci-multi');
+  const pvleg=document.getElementById('pvleg');
+  const pvnote=document.getElementById('pvnote');
+  if(gp){
+    pvci.style.display='none'; pvciM.style.display='block';
+    const paramsWithData=gp.filter(p=>[...pvSel].some(sid=>{
+      const recs=D.chart[sid]?.[p];
+      if(!recs) return false;
+      return recs.some(r=>{if(!r.d)return false;const y=+r.d.slice(0,4);return y>=yrFrom&&y<=yrTo&&!r.nd&&r.v!=null;});
+    }));
+    if(!paramsWithData.length){
+      pvciM.innerHTML='<div style="padding:20px;color:var(--muted);font-style:italic">No data found for the selected sites and parameter group.</div>';
+      pvleg.innerHTML=''; pvnote.textContent=''; return;
+    }
+    pvciM.innerHTML='<div class="pvci-multi-grid" id="pvci-grid"></div>';
+    const grid=document.getElementById('pvci-grid');
+    let palIdx=0;
+    paramsWithData.forEach(p=>{
+      const {datasets,hasData,unit}=pvBuildDatasetsForParam(p,yrFrom,yrTo);
+      if(!hasData) return;
+      const card=document.createElement('div'); card.className='pvci-item';
+      card.innerHTML=`<div class="pvci-item-label">${esc(p)}</div><div class="pvci-item-canvas"><canvas></canvas></div>`;
+      grid.appendChild(card);
+      pvCharts.push(new Chart(card.querySelector('canvas').getContext('2d'),{type:'scatter',data:{datasets},options:pvChartOptions(unit,true)}));
+    });
+    // Shared site legend
+    const legItems=[]; let i=0;
+    pvSel.forEach(sid=>{
+      const site=D.sites.find(s=>s.id===sid); if(!site) return;
+      legItems.push({label:site.name,col:PV_PALETTE[i%PV_PALETTE.length]}); i++;
+    });
+    pvleg.innerHTML=legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join('')+PV_LEG_SYMBOLS;
+    pvnote.textContent=''; return;
+  }
+  // Single param mode
+  pvci.style.display=''; pvciM.style.display='none';
+  const {datasets,legItems,stdNote,unit,hasData}=pvBuildDatasetsForParam(param,yrFrom,yrTo);
+  if(!hasData){
+    pvleg.innerHTML=''; pvnote.textContent='No data found for the selected sites and parameter. Try selecting different sites or adjusting the year range.'; return;
+  }
+  pvChart=new Chart(document.getElementById('pvc2').getContext('2d'),{type:'scatter',data:{datasets},options:pvChartOptions(unit,false)});
+  pvleg.innerHTML=legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join('')+PV_LEG_SYMBOLS;
+  pvnote.textContent=stdNote;
+}
+
+// ── UTIL ──
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>

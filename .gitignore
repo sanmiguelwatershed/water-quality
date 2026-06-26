@@ -1,0 +1,31 @@
+# Source / build files — not part of the web app
+*.xlsx
+*.csv
+*.zip
+*.pdf
+*.py
+*.gdb
+*.dbf
+*.prj
+*.sbn
+*.sbx
+*.shp
+*.shp.xml
+*.shx
+*.qmd
+
+# Large GeoJSON source files (not used by the web app)
+stream_standards_san_miguel.geojson
+stream_segmentation_standards.geojson
+lake_standards.geojson
+
+# Working files
+*.gdoc
+San_Miguel_Huc12/
+files.zip
+
+# Local dev server
+.claude/
+
+# macOS
+.DS_Store
