@@ -231,6 +231,12 @@ a.rl:hover{opacity:.7}
   height:4px;background:var(--bdr);border-radius:2px;pointer-events:none}
 #map-yr-fill{position:absolute;top:0;height:100%;background:var(--accent);border-radius:2px}
 
+/* PARAM VIEW MINIMAP TOOLTIP */
+.pv-mm-tip{background:rgba(255,255,255,.97);border:1px solid var(--bdr);border-radius:5px;
+  padding:5px 8px;font-family:'Source Sans 3',sans-serif;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);
+  pointer-events:none;white-space:nowrap}
+.pv-mm-tip::before{display:none}
+
 /* POPUP */
 .leaflet-popup-content-wrapper{border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr)}
 .leaflet-popup-content{font-family:'Source Sans 3',sans-serif;font-size:12.5px;line-height:1.5;min-width:190px}
@@ -1136,7 +1142,8 @@ function updatePVMiniMap(){
       fillColor:site.color||'#9e9e9e',
       color:'#fff',weight:inSel?1.5:0.8,
       fillOpacity:inSel?1:0.45,opacity:1,
-    }));
+    }).bindTooltip(`<strong>${site.id}</strong><br><span style="font-size:11px;color:#555">${site.name}</span>`,
+      {sticky:true,offset:[8,0],opacity:0.97,className:'pv-mm-tip'}));
   });
   pvMM_siteLayer=L.layerGroup(siteDots).addTo(pvMiniMap);
   // HUC boundary layers
