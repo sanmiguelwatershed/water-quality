@@ -135,7 +135,7 @@ main{margin-top:54px;height:calc(100vh - 54px);display:flex;flex-direction:colum
 .pcg{display:flex;flex-direction:column;gap:4px}
 .pcg label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .pcg select,.pcg input[type=number]{padding:6px 9px;border:1px solid var(--bdr);border-radius:var(--r);
-  background:var(--bg);font-family:'Source Sans 3',sans-serif;font-size:13px;color:var(--ink);outline:none}
+  background:var(--bg);font-family:'Source Sans 3',sans-serif;font-size:13px;color:var(--ink);outline:none;max-width:260px}
 .pcg select:focus,.pcg input:focus{border-color:var(--accent)}
 /* Param view mid-row: minimap + sites */
 #pv-mid{display:flex;gap:12px;align-items:flex-start}
@@ -169,6 +169,15 @@ main{margin-top:54px;height:calc(100vh - 54px);display:flex;flex-direction:colum
 
 /* ── GUIDE ── */
 #view-guide{overflow:auto}
+/* LONGITUDINAL PROFILE */
+#view-long{flex-direction:column;overflow-x:hidden;overflow-y:auto}
+#lpi{display:flex;flex-direction:column;padding:12px 16px;gap:10px;max-width:1400px;width:100%;box-sizing:border-box}
+#lp-mid{display:flex;gap:12px;align-items:flex-start}
+#lp-minimap{width:280px;min-width:200px;height:220px;border-radius:6px;border:1px solid var(--bdr);flex-shrink:0}
+#lp-chart-wrap{height:460px;position:relative;background:var(--bg);flex:1;min-width:0}
+#lp-note{font-size:12px;color:var(--muted);min-height:18px}
+#lp-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;max-height:120px;overflow-y:auto}
+@media(max-width:700px){#lp-mid{flex-direction:column}#lp-minimap{width:100%;height:180px}}
 #gi{max-width:820px;margin:0 auto;padding:28px 22px}
 #gi h2{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;margin-bottom:4px}
 .subtitle{color:var(--muted);font-size:13.5px;margin-bottom:24px}
@@ -276,6 +285,7 @@ a.rl:hover{opacity:.7}
   <div class="nav-tabs">
     <button class="tb active" onclick="showView('site',this)">📍 Site View</button>
     <button class="tb" onclick="showView('param',this)">📈 Parameter View</button>
+    <button class="tb" onclick="showView('long',this)">📏 Longitudinal Profile</button>
     <button class="tb" onclick="showView('guide',this)">📋 Standards Guide</button>
   </div>
   <div class="nav-right">DRAFT — Board Review Only</div>
@@ -370,6 +380,15 @@ a.rl:hover{opacity:.7}
         <input type="number" id="pv-yt" value="2025" min="1909" max="2025" style="width:64px" onchange="pvRender()">
       </div>
     </div>
+    <div class="pcg">
+      <label>Color by</label>
+      <select id="pv-color-by" onchange="pvColorByChange()">
+        <option value="palette">Site (default)</option>
+        <option value="org">Organization</option>
+        <option value="huc10">HUC10 Watershed</option>
+        <option value="huc12">HUC12 Subwatershed</option>
+      </select>
+    </div>
   </div>
   <div id="pv-mid">
     <div id="pv-minimap"></div>
@@ -400,6 +419,74 @@ a.rl:hover{opacity:.7}
     <div id="pvleg"></div>
   </div>
   <div id="pvnote"></div>
+</div>
+</div>
+
+<!-- LONGITUDINAL PROFILE -->
+<div id="view-long" class="view">
+<div id="lpi">
+  <div class="pvc">
+    <div class="pcg">
+      <label>Parameter</label>
+      <select id="lp-p" onchange="lpBuild()"></select>
+    </div>
+    <div class="pcg">
+      <label>Organization</label>
+      <select id="lp-org" onchange="lpBuild()">
+        <option value="">All organizations</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>HUC10 Watershed</label>
+      <select id="lp-huc10" onchange="lpOnHuc10Change()">
+        <option value="">All watersheds</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>HUC12 Subwatershed</label>
+      <select id="lp-huc12" onchange="lpOnHuc12Change()">
+        <option value="">All subwatersheds</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>Stream Segment</label>
+      <select id="lp-seg" onchange="lpBuild()">
+        <option value="">All segments</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>Year range</label>
+      <div style="display:flex;gap:5px;align-items:center">
+        <input type="number" id="lp-yf" value="2000" min="1909" max="2025" style="width:64px" onchange="lpRender()">
+        <span style="color:var(--muted)">–</span>
+        <input type="number" id="lp-yt" value="2025" min="1909" max="2025" style="width:64px" onchange="lpRender()">
+      </div>
+    </div>
+    <div class="pcg">
+      <label>Color by</label>
+      <select id="lp-color-by" onchange="lpRender()">
+        <option value="org">Organization</option>
+        <option value="huc10">HUC10 Watershed</option>
+        <option value="huc12">HUC12 Subwatershed</option>
+      </select>
+    </div>
+    <div class="pcg">
+      <label>Display</label>
+      <select id="lp-agg" onchange="lpRender()">
+        <option value="median">Median per site</option>
+        <option value="all">All measurements</option>
+      </select>
+    </div>
+  </div>
+  <div id="lp-mid">
+    <div id="lp-minimap"></div>
+    <div id="lp-chart-area" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+      <div id="lp-chart-wrap"><canvas id="lpc"></canvas></div>
+      <div id="lp-chart-multi" style="display:none"></div>
+    </div>
+  </div>
+  <div id="lp-legend"></div>
+  <div id="lp-note"></div>
 </div>
 </div>
 
@@ -510,6 +597,11 @@ a.rl:hover{opacity:.7}
 // ── STATE ──
 let D=null, MAP=null, selSite=null, sChart=null, pvChart=null, pvCharts=[], markers={}, pvSel=new Set(), pvRelevant=[], orgVis={};
 let pvMiniMap=null, pvMM_huc10Layer=null, pvMM_huc12Layer=null, pvMM_siteLayer=null, pvMM_huc8Layer=null;
+let lpMiniMap=null, lpMM_huc10Layer=null, lpMM_huc12Layer=null, lpMM_siteLayer=null, lpMM_huc8Layer=null;
+let lpFiltered=[];
+let HUC10_COLORS={}, HUC12_COLORS={};
+let PV_COLOR_BY='palette';
+const HUC_PAL=['#1a6bb5','#c1440e','#2d9c5f','#b45309','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea','#0d9488','#e03d3d','#047857','#92400e','#4338ca','#0369a1','#78350f','#6d28d9','#065f46'];
 let GEO_HUC10=null, GEO_HUC12=null, GEO_HUC8=null;
 
 // Segment narrative names from 5 CCR 1002-35, derived from stream_standards_san_miguel.geojson DESC field.
@@ -559,13 +651,14 @@ const SEG_NAMES={
 };
 
 // ── LOAD ──
-fetch('app_data.json').then(r=>r.json()).then(data=>{
+fetch('app_data.json?v='+Date.now()).then(r=>r.json()).then(data=>{
   D=data;
   document.getElementById('ld').style.display='none';
   // Default site-view year range to last 30 years
   const curYr=new Date().getFullYear();
   const yrFromEl=document.getElementById('s-yr-from');
   if(yrFromEl) yrFromEl.value=Math.max(+yrFromEl.min, curYr-30);
+  buildHucColors();
   initMap(); initMapYearFilter(); initOrgLegend(); initSelects(); initPVOrg(); initPVSeg();
 }).catch(e=>{
   document.getElementById('ld').innerHTML=`<p style="color:red;padding:20px">Error loading app_data.json:<br>${e.message}<br><br>Make sure both index.html and app_data.json are in the same folder.</p>`;
@@ -579,6 +672,7 @@ function showView(v,btn){
   if(btn) btn.classList.add('active');
   if(v==='site'&&MAP) setTimeout(()=>MAP.invalidateSize(),80);
   if(v==='param'&&D){ pvBuild(); setTimeout(()=>initPVMiniMap(),80); }
+  if(v==='long'&&D){ initLP(); setTimeout(()=>initLPMiniMap(),80); }
 }
 
 // ── MAP ──
@@ -1311,7 +1405,7 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
     const nds=allRecs.filter(r=>r.nd);
     if(!allRecs.length) return;
     if(!rawUnit) rawUnit=recs[0]?.u||nds[0]?.u||'';
-    const col=PV_PALETTE[palIdx%PV_PALETTE.length]; palIdx++;
+    const col=PV_COLOR_BY==='palette'?PV_PALETTE[palIdx%PV_PALETTE.length]:getSiteColor(site,PV_COLOR_BY); palIdx++;
     const sName=site.name.length>32?site.name.slice(0,30)+'…':site.name;
     const cv=r=>toDisplayUnit(r.v,r.u||rawUnit,paramGroup).v;
     let acuteExc,chronExc,normal;
@@ -1401,13 +1495,19 @@ function pvRender(){
       grid.appendChild(card);
       pvCharts.push(new Chart(card.querySelector('canvas').getContext('2d'),{type:'scatter',data:{datasets},options:pvChartOptions(unit,true)}));
     });
-    // Shared site legend
-    const legItems=[]; let i=0;
-    pvSel.forEach(sid=>{
-      const site=D.sites.find(s=>s.id===sid); if(!site) return;
-      legItems.push({label:site.name,col:PV_PALETTE[i%PV_PALETTE.length]}); i++;
-    });
-    pvleg.innerHTML=legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join('')+PV_LEG_SYMBOLS;
+    // Shared legend — by color mode
+    const selSites=[...pvSel].map(sid=>D.sites.find(s=>s.id===sid)).filter(Boolean);
+    const pvLegHuc=PV_COLOR_BY==='huc10'||PV_COLOR_BY==='huc12';
+    if(pvLegHuc){
+      pvleg.innerHTML=buildColorByLegend(PV_COLOR_BY,selSites)+PV_LEG_SYMBOLS;
+    } else {
+      let i=0;
+      const legItems=selSites.map(site=>{
+        const col=PV_COLOR_BY==='palette'?PV_PALETTE[i%PV_PALETTE.length]:getSiteColor(site,PV_COLOR_BY); i++;
+        return {label:site.name,col};
+      });
+      pvleg.innerHTML=legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join('')+PV_LEG_SYMBOLS;
+    }
     pvnote.textContent=''; return;
   }
   // Single param mode
@@ -1417,8 +1517,299 @@ function pvRender(){
     pvleg.innerHTML=''; pvnote.textContent='No data found for the selected sites and parameter. Try selecting different sites or adjusting the year range.'; return;
   }
   pvChart=new Chart(document.getElementById('pvc2').getContext('2d'),{type:'scatter',data:{datasets},options:pvChartOptions(unit,false)});
-  pvleg.innerHTML=legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join('')+PV_LEG_SYMBOLS;
+  const pvLegHuc=PV_COLOR_BY==='huc10'||PV_COLOR_BY==='huc12';
+  const selSitesSingle=[...pvSel].map(sid=>D.sites.find(s=>s.id===sid)).filter(Boolean);
+  pvleg.innerHTML=(pvLegHuc?buildColorByLegend(PV_COLOR_BY,selSitesSingle):legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join(''))+PV_LEG_SYMBOLS;
   pvnote.textContent=stdNote;
+}
+
+// ── HUC COLORS ──
+function buildHucColors(){
+  const h10s=[...new Set(D.sites.map(s=>s.huc10).filter(Boolean))].sort();
+  const h12s=[...new Set(D.sites.map(s=>s.huc12).filter(Boolean))].sort();
+  h10s.forEach((h,i)=>{HUC10_COLORS[h]=HUC_PAL[i%HUC_PAL.length];});
+  h12s.forEach((h,i)=>{HUC12_COLORS[h]=HUC_PAL[i%HUC_PAL.length];});
+}
+function getSiteColor(site,colorBy){
+  if(colorBy==='huc10') return HUC10_COLORS[site.huc10]||'#9e9e9e';
+  if(colorBy==='huc12') return HUC12_COLORS[site.huc12]||'#9e9e9e';
+  if(colorBy==='org')   return site.color||'#9e9e9e';
+  return null; // palette mode — caller handles
+}
+function pvColorByChange(){
+  PV_COLOR_BY=document.getElementById('pv-color-by').value;
+  pvRender();
+}
+function buildColorByLegend(colorBy, sites){
+  if(colorBy==='huc10'){
+    const seen=new Map();
+    sites.forEach(s=>{if(s.huc10&&!seen.has(s.huc10))seen.set(s.huc10,HUC10_COLORS[s.huc10]||'#9e9e9e');});
+    return [...seen.entries()].map(([h,c])=>`<div class="li"><div class="ld" style="background:${c}"></div><span>${esc(h)}</span></div>`).join('');
+  }
+  if(colorBy==='huc12'){
+    const seen=new Map();
+    sites.forEach(s=>{if(s.huc12&&!seen.has(s.huc12))seen.set(s.huc12,HUC12_COLORS[s.huc12]||'#9e9e9e');});
+    return [...seen.entries()].map(([h,c])=>`<div class="li"><div class="ld" style="background:${c}"></div><span>${esc(h)}</span></div>`).join('');
+  }
+  if(colorBy==='org'||colorBy==='palette'){
+    // Show unique orgs present in the site set
+    const seen=new Map();
+    sites.forEach(s=>(s.orgs||[]).forEach(o=>{if(!seen.has(o))seen.set(o,D.org_colors[o]||s.color||'#9e9e9e');}));
+    return [...seen.entries()].map(([o,c])=>`<div class="li"><div class="ld" style="background:${c}"></div><span>${esc(D.org_labels[o]||o)}</span></div>`).join('');
+  }
+  return '';
+}
+
+// ── LONGITUDINAL PROFILE ──
+let lpChart=null, lpInited=false;
+
+function initLP(){
+  if(!lpInited){
+    // Parameter dropdown (grouped like PV)
+    const sel=document.getElementById('lp-p');
+    const og0=document.createElement('optgroup'); og0.label='Quick Select';
+    PV_GROUP_OPTS.forEach(({value,label})=>{const o=document.createElement('option');o.value=value;o.textContent=label;og0.appendChild(o);});
+    sel.appendChild(og0);
+    const groups={};
+    Object.entries(D.param_config).forEach(([p,cfg])=>{if(!groups[cfg.group])groups[cfg.group]=[];groups[cfg.group].push(p);});
+    ['Metals','Physical','Biological','Inorganic'].forEach(g=>{
+      if(!groups[g]) return;
+      const og=document.createElement('optgroup');og.label=g;
+      groups[g].forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);});
+      sel.appendChild(og);
+    });
+    sel.value='Specific Conductance';
+    // Org dropdown
+    const org=document.getElementById('lp-org');
+    Object.entries(D.org_labels).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v;org.appendChild(o);});
+    // HUC10
+    const huc10s=[...new Set(D.sites.map(s=>s.huc10).filter(Boolean))].sort();
+    const h10=document.getElementById('lp-huc10');
+    huc10s.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;h10.appendChild(o);});
+    lpPopulateHuc12(); lpPopulateSeg();
+    // Year range
+    const curYr=new Date().getFullYear();
+    document.getElementById('lp-yf').value=Math.max(1909,curYr-30);
+    document.getElementById('lp-yt').value=curYr;
+    lpInited=true;
+  }
+  lpBuild();
+}
+function lpPopulateHuc12(){
+  const h10F=document.getElementById('lp-huc10').value;
+  const huc12s=[...new Set(D.sites.filter(s=>!h10F||s.huc10===h10F).map(s=>s.huc12).filter(Boolean))].sort();
+  const sel=document.getElementById('lp-huc12');
+  sel.innerHTML='<option value="">All subwatersheds</option>';
+  huc12s.forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;sel.appendChild(o);});
+}
+function lpPopulateSeg(){
+  const h10F=document.getElementById('lp-huc10').value;
+  const h12F=document.getElementById('lp-huc12').value;
+  const segs=[...new Set(D.sites.filter(s=>(!h10F||s.huc10===h10F)&&(!h12F||s.huc12===h12F)).map(s=>s.seg).filter(Boolean))].sort();
+  const sel=document.getElementById('lp-seg');
+  sel.innerHTML='<option value="">All segments</option>';
+  segs.forEach(seg=>{const o=document.createElement('option');o.value=seg;o.textContent=SEG_NAMES[seg]?`${SEG_NAMES[seg]} — ${seg}`:seg;sel.appendChild(o);});
+}
+function lpOnHuc10Change(){
+  document.getElementById('lp-huc12').value='';
+  document.getElementById('lp-seg').value='';
+  lpPopulateHuc12(); lpPopulateSeg(); lpBuild();
+}
+function lpOnHuc12Change(){
+  document.getElementById('lp-seg').value='';
+  lpPopulateSeg(); lpBuild();
+}
+function lpBuild(){
+  if(!D) return;
+  const orgF=document.getElementById('lp-org').value;
+  const h10F=document.getElementById('lp-huc10').value;
+  const h12F=document.getElementById('lp-huc12').value;
+  const segF=document.getElementById('lp-seg').value;
+  lpFiltered=D.sites.filter(s=>{
+    if(s.dist_km==null) return false;
+    if(orgF&&!s.orgs.includes(orgF)) return false;
+    if(h10F&&s.huc10!==h10F) return false;
+    if(h12F&&s.huc12!==h12F) return false;
+    if(segF&&s.seg!==segF) return false;
+    return true;
+  });
+  updateLPMiniMap();
+  lpRender();
+}
+async function initLPMiniMap(){
+  if(lpMiniMap) return;
+  // Reuse already-loaded GeoJSONs if PV minimap fetched them
+  if(!GEO_HUC10||!GEO_HUC12||!GEO_HUC8){
+    try{
+      const [r10,r12,r8]=await Promise.all([
+        GEO_HUC10?Promise.resolve(GEO_HUC10):fetch('huc10_sanmiguel.geojson').then(r=>r.json()),
+        GEO_HUC12?Promise.resolve(GEO_HUC12):fetch('huc12_sanmiguel.geojson').then(r=>r.json()),
+        GEO_HUC8?Promise.resolve(GEO_HUC8):fetch('huc8_sanmiguel.geojson').then(r=>r.json()),
+      ]);
+      GEO_HUC10=r10; GEO_HUC12=r12; GEO_HUC8=r8;
+    } catch(e){console.warn('Could not load HUC GeoJSON',e);}
+  }
+  lpMiniMap=L.map('lp-minimap',{
+    zoomControl:false,attributionControl:false,
+    scrollWheelZoom:true,doubleClickZoom:true,
+    dragging:true,boxZoom:false,keyboard:false,touchZoom:true,
+  }).setView([37.95,-108.3],8);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(lpMiniMap);
+  if(GEO_HUC8){
+    lpMM_huc8Layer=L.geoJSON(GEO_HUC8,{
+      style:{color:'#1a6bb5',weight:2,fillColor:'#1a6bb5',fillOpacity:0.05,dashArray:'6,4'},
+      interactive:false
+    }).addTo(lpMiniMap);
+  }
+  updateLPMiniMap();
+}
+function updateLPMiniMap(){
+  if(!lpMiniMap) return;
+  const h10F=document.getElementById('lp-huc10')?.value||'';
+  const h12F=document.getElementById('lp-huc12')?.value||'';
+  const colorBy=document.getElementById('lp-color-by')?.value||'org';
+  const filteredIds=new Set(lpFiltered.map(s=>s.id));
+  if(lpMM_siteLayer){lpMM_siteLayer.remove();lpMM_siteLayer=null;}
+  const dots=[];
+  D.sites.forEach(site=>{
+    if(!site.lat||!site.lon||site.lon===-180) return;
+    const inF=filteredIds.has(site.id);
+    const col=getSiteColor(site,colorBy==='palette'?'org':colorBy)||site.color||'#9e9e9e';
+    dots.push(L.circleMarker([site.lat,site.lon],{
+      radius:inF?5:2.5,
+      fillColor:col,
+      color:'#fff',weight:inF?1.2:0.6,
+      fillOpacity:inF?0.9:0.2,opacity:1,
+    }).bindTooltip(`<strong>${site.id}</strong><br><span style="font-size:11px;color:#555">${site.name}</span>`,
+      {sticky:true,offset:[8,0],opacity:0.97,className:'pv-mm-tip'}));
+  });
+  lpMM_siteLayer=L.layerGroup(dots).addTo(lpMiniMap);
+  if(lpMM_huc10Layer){lpMM_huc10Layer.remove();lpMM_huc10Layer=null;}
+  if(lpMM_huc12Layer){lpMM_huc12Layer.remove();lpMM_huc12Layer=null;}
+  let fitBounds=null;
+  if(GEO_HUC10&&h10F){
+    const feats=GEO_HUC10.features.filter(f=>f.properties.name===h10F);
+    if(feats.length){lpMM_huc10Layer=L.geoJSON({type:'FeatureCollection',features:feats},{style:{color:'#2563eb',weight:2,fillColor:'#2563eb',fillOpacity:0.06,dashArray:'5,3'}}).addTo(lpMiniMap);fitBounds=lpMM_huc10Layer.getBounds();}
+  }
+  if(GEO_HUC12&&h12F){
+    const feats=GEO_HUC12.features.filter(f=>f.properties.name===h12F);
+    if(feats.length){lpMM_huc12Layer=L.geoJSON({type:'FeatureCollection',features:feats},{style:{color:'#7c3aed',weight:2,fillColor:'#7c3aed',fillOpacity:0.12}}).addTo(lpMiniMap);fitBounds=lpMM_huc12Layer.getBounds();}
+  }
+  if(fitBounds) lpMiniMap.fitBounds(fitBounds,{padding:[12,12]});
+  else lpMiniMap.setView([37.95,-108.3],8);
+}
+
+function lpMedian(arr){
+  const s=[...arr].sort((a,b)=>a-b);
+  const m=Math.floor(s.length/2);
+  return s.length%2?s[m]:(s[m-1]+s[m])/2;
+}
+
+let lpCharts=[];
+function lpBuildSingleChart(canvas, param, pool, yrFrom, yrTo, agg, colorBy){
+  const paramGroup=D.param_config[param]?.group||'';
+  const datasets=[]; const sitesWithData=[]; let rawUnit='';
+  pool.forEach(site=>{
+    const cdata=D.chart[site.id];
+    if(!cdata||!cdata[param]) return;
+    const recs=cdata[param].filter(r=>{if(!r.d||r.nd||r.v==null)return false;const y=+r.d.slice(0,4);return y>=yrFrom&&y<=yrTo;});
+    if(!recs.length) return;
+    if(!rawUnit) rawUnit=recs[0].u||'';
+    const col=getSiteColor(site,colorBy==='palette'?'org':colorBy)||site.color||'#9e9e9e';
+    const toY=r=>toDisplayUnit(r.v,r.u||rawUnit,paramGroup).v;
+    let pts;
+    if(agg==='median'){const med=lpMedian(recs.map(toY));pts=[{x:site.dist_km,y:med,date:`${yrFrom}–${yrTo} median`,site:site.name,n:recs.length}];}
+    else{pts=recs.map(r=>({x:site.dist_km,y:toY(r),date:r.d,site:site.name,n:null}));}
+    datasets.push({label:site.name,data:pts,backgroundColor:col+(agg==='median'?'ee':'99'),borderColor:col,pointRadius:agg==='median'?6:3.5,pointHoverRadius:agg==='median'?8:6,borderWidth:agg==='median'?1.5:0,showLine:false});
+    sitesWithData.push(site);
+  });
+  const unit=toDisplayUnit(0,rawUnit,paramGroup).u||rawUnit;
+  if(!datasets.length) return {chart:null,sitesWithData,unit};
+  const chart=new Chart(canvas.getContext('2d'),{type:'scatter',data:{datasets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const r=c.raw;const val=r.y!=null?Number(r.y.toPrecision(4))+' '+unit:'—';return r.n!=null?`${r.site}: ${val}  (n=${r.n}, ${r.date})`:`${r.site}: ${val}  (${r.date})`;}}}},
+    scales:{x:{type:'linear',title:{display:true,text:'Distance from mouth (km)',font:{size:10}},grid:{color:'#efefef'},ticks:{font:{size:9.5}},min:0},y:{title:{display:true,text:unit,font:{size:10}},grid:{color:'#efefef'},ticks:{font:{size:9.5}}}}
+  }});
+  return {chart,sitesWithData,unit};
+}
+
+function lpRender(){
+  if(!D) return;
+  const param=document.getElementById('lp-p').value;
+  const yrFrom=+document.getElementById('lp-yf').value;
+  const yrTo=+document.getElementById('lp-yt').value;
+  const agg=document.getElementById('lp-agg').value;
+  const colorBy=document.getElementById('lp-color-by').value;
+  const pool=lpFiltered.length?lpFiltered:D.sites.filter(s=>s.dist_km!=null);
+
+  // Destroy previous charts
+  if(lpChart){lpChart.destroy();lpChart=null;}
+  lpCharts.forEach(c=>c.destroy()); lpCharts=[];
+  const note=document.getElementById('lp-note');
+  const leg=document.getElementById('lp-legend');
+  const single=document.getElementById('lp-chart-wrap');
+  const multi=document.getElementById('lp-chart-multi');
+
+  const gp=pvGroupParams(param);
+
+  if(gp){
+    // Multi-param group mode — grid of small charts
+    single.style.display='none'; multi.style.display='block';
+    const paramsWithData=gp.filter(p=>pool.some(site=>{
+      const recs=D.chart[site.id]?.[p];
+      return recs?.some(r=>{if(!r.d||r.nd||r.v==null)return false;const y=+r.d.slice(0,4);return y>=yrFrom&&y<=yrTo;});
+    }));
+    if(!paramsWithData.length){
+      multi.innerHTML='<div style="padding:20px;color:var(--muted);font-style:italic">No data found for this parameter group.</div>';
+      leg.innerHTML=''; note.textContent=''; updateLPMiniMap(); return;
+    }
+    multi.innerHTML='<div class="pvci-multi-grid" id="lp-grid"></div>';
+    const grid=document.getElementById('lp-grid');
+    let allSites=[];
+    paramsWithData.forEach(p=>{
+      const card=document.createElement('div'); card.className='pvci-item';
+      card.innerHTML=`<div class="pvci-item-label">${esc(p)}</div><div class="pvci-item-canvas"><canvas></canvas></div>`;
+      grid.appendChild(card);
+      const {chart,sitesWithData}=lpBuildSingleChart(card.querySelector('canvas'),p,pool,yrFrom,yrTo,agg,colorBy);
+      if(chart){lpCharts.push(chart); allSites.push(...sitesWithData);}
+    });
+    const uniq=[...new Map(allSites.map(s=>[s.id,s])).values()];
+    leg.innerHTML=buildColorByLegend(colorBy,uniq);
+    note.textContent=`${paramsWithData.length} parameters shown — ${agg==='median'?'median per site':'all measurements'}.  Left = mouth  →  Right = headwaters.`;
+    updateLPMiniMap(); return;
+  }
+
+  // Single param mode
+  single.style.display=''; multi.style.display='none';
+  const paramGroup=D.param_config[param]?.group||'';
+  const datasets=[]; const sitesWithData=[]; let rawUnit='';
+  pool.forEach(site=>{
+    const cdata=D.chart[site.id];
+    if(!cdata||!cdata[param]) return;
+    const recs=cdata[param].filter(r=>{if(!r.d||r.nd||r.v==null)return false;const y=+r.d.slice(0,4);return y>=yrFrom&&y<=yrTo;});
+    if(!recs.length) return;
+    if(!rawUnit) rawUnit=recs[0].u||'';
+    const col=getSiteColor(site,colorBy==='palette'?'org':colorBy)||site.color||'#9e9e9e';
+    const toY=r=>toDisplayUnit(r.v,r.u||rawUnit,paramGroup).v;
+    let pts;
+    if(agg==='median'){const med=lpMedian(recs.map(toY));pts=[{x:site.dist_km,y:med,date:`${yrFrom}–${yrTo} median`,site:site.name,n:recs.length}];}
+    else{pts=recs.map(r=>({x:site.dist_km,y:toY(r),date:r.d,site:site.name,n:null}));}
+    datasets.push({label:site.name,data:pts,backgroundColor:col+(agg==='median'?'ee':'99'),borderColor:col,pointRadius:agg==='median'?6:3.5,pointHoverRadius:agg==='median'?8:6,borderWidth:agg==='median'?1.5:0,showLine:false});
+    sitesWithData.push(site);
+  });
+  const unit=toDisplayUnit(0,rawUnit,paramGroup).u||rawUnit;
+  if(!datasets.length){
+    note.textContent='No data found for this parameter in the selected year range.';
+    leg.innerHTML=''; updateLPMiniMap(); return;
+  }
+  note.textContent=`${sitesWithData.length} site${sitesWithData.length!==1?'s':''} with data${agg==='median'?' — median per site':''}.  Left = mouth (Dolores confluence)  →  Right = headwaters.`;
+  leg.innerHTML=buildColorByLegend(colorBy,sitesWithData);
+  lpChart=new Chart(document.getElementById('lpc').getContext('2d'),{type:'scatter',data:{datasets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const r=c.raw;const val=r.y!=null?Number(r.y.toPrecision(4))+' '+unit:'—';return r.n!=null?`${r.site}: ${val}  (n=${r.n}, ${r.date})`:`${r.site}: ${val}  (${r.date})`;}}}},
+    scales:{x:{type:'linear',title:{display:true,text:'Distance from mouth (km)',font:{size:11}},grid:{color:'#efefef'},ticks:{font:{size:10.5}},min:0},y:{title:{display:true,text:unit,font:{size:11}},grid:{color:'#efefef'},ticks:{font:{size:10.5}}}}
+  }});
+  updateLPMiniMap();
 }
 
 // ── UTIL ──
