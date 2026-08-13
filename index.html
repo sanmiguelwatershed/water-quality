@@ -1329,9 +1329,7 @@ function pvSelectAll(){
   pvAfterSelChange();
 }
 function pvDeselectAll(){
-  const search=document.getElementById('pv-search').value.toLowerCase().trim();
-  const pool=search?pvRelevant.filter(s=>s.id.toLowerCase().includes(search)||s.name.toLowerCase().includes(search)):pvRelevant;
-  pool.forEach(s=>pvSel.delete(s.id));
+  pvSel.clear();
   pvAfterSelChange();
 }
 function pvAfterSelChange(){
