@@ -877,20 +877,13 @@ function computeTrafficZones(stds,isMin){
   const cVal=stds.find(s=>s.type==='chronic')?.value;
   if(aVal==null&&cVal==null) return [];
   if(isMin){
-    // Lower is worse (DO) — acute < chronic
+    // Lower is worse (DO). Sort thresholds so zones never overlap regardless of which is higher.
+    const lo=Math.min(aVal??Infinity, cVal??Infinity);
+    const hi=Math.max(aVal??-Infinity, cVal??-Infinity);
     const zones=[];
-    if(aVal!=null){
-      zones.push({color:ZONE_RED,  yMin:-Infinity,yMax:aVal});
-      if(cVal!=null){
-        zones.push({color:ZONE_AMBER,yMin:aVal,yMax:cVal});
-        zones.push({color:ZONE_GREEN,yMin:cVal,yMax:Infinity});
-      } else {
-        zones.push({color:ZONE_GREEN,yMin:aVal,yMax:Infinity});
-      }
-    } else {
-      zones.push({color:ZONE_AMBER,yMin:-Infinity,yMax:cVal});
-      zones.push({color:ZONE_GREEN,yMin:cVal,yMax:Infinity});
-    }
+    if(isFinite(lo)) zones.push({color:ZONE_RED,  yMin:-Infinity,yMax:lo});
+    if(isFinite(lo)&&isFinite(hi)) zones.push({color:ZONE_AMBER,yMin:lo,yMax:hi});
+    zones.push({color:ZONE_GREEN,yMin:isFinite(hi)?hi:isFinite(lo)?lo:-Infinity,yMax:Infinity});
     return zones;
   } else {
     // Higher is worse — acute > chronic
@@ -968,8 +961,8 @@ function renderSite(){
   const hasAmber=zones.some(z=>z.color===ZONE_AMBER);
   const hasRed  =zones.some(z=>z.color===ZONE_RED);
   if(hasGreen) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(16,185,129,0.45)"></span>Attaining</span>`);
-  if(hasAmber) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(245,158,11,0.55)"></span>${isMin?'Below chronic std':'Chronic exceedance'}</span>`);
-  if(hasRed)   legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(220,38,38,0.40)"></span>${isMin?'Below acute std':'Acute exceedance'}</span>`);
+  if(hasAmber) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(245,158,11,0.55)"></span>${isMin?'Below acute std':'Chronic exceedance'}</span>`);
+  if(hasRed)   legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(220,38,38,0.40)"></span>${isMin?'Below chronic std':'Acute exceedance'}</span>`);
   // ROD consent-decree context (Idarado only — no shading, just note in legend)
   if(idaradoSeg&&stds.some(s=>s.type==='consent_decree')) legParts.push(`<span class="lgi"><span class="lg-dot" style="background:#92400e"></span>ROD target (dashed line)</span>`);
   // Data-source (org) entries — uniform dot color since zones handle status
@@ -1420,8 +1413,11 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
       const cStdRaw=siteStds.find(s=>s.type==='chronic');
       const aStd=aStdRaw?toDisplayUnit(aStdRaw.value,aStdRaw.unit||'mg/L',paramGroup).v:null;
       const cStd=cStdRaw?toDisplayUnit(cStdRaw.value,cStdRaw.unit||'mg/L',paramGroup).v:null;
-      acuteExc=aStd!=null?recs.filter(r=>cv(r)<aStd):[];
-      chronExc=cStd!=null?recs.filter(r=>cv(r)<cStd&&!(aStd!=null&&cv(r)<aStd)):[];
+      // Sort thresholds: lo=more-permissive(lower value), hi=more-stringent(higher value)
+      const loStd=(aStd!=null&&cStd!=null)?Math.min(aStd,cStd):(cStd??aStd);
+      const hiStd=(aStd!=null&&cStd!=null)?Math.max(aStd,cStd):(aStd??cStd);
+      acuteExc=loStd!=null?recs.filter(r=>cv(r)<loStd):[];
+      chronExc=hiStd!=null?recs.filter(r=>cv(r)>=( loStd??-Infinity)&&cv(r)<hiStd):[];
       const ak=new Set(acuteExc.map(r=>r.d+'|'+r.v));
       const ck=new Set(chronExc.map(r=>r.d+'|'+r.v));
       normal=recs.filter(r=>{const k=r.d+'|'+r.v;return !ak.has(k)&&!ck.has(k);});
