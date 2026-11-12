@@ -38,7 +38,7 @@ main{margin-top:54px;height:calc(100vh - 54px);display:flex;flex-direction:colum
 #map-panel{width:42%;min-width:320px;position:relative;border-right:1px solid var(--bdr)}
 #map{height:100%;width:100%}
 /* Org layer legend */
-#org-legend{position:absolute;bottom:28px;left:10px;z-index:1000;background:rgba(255,255,255,.95);
+#org-legend{position:absolute;bottom:28px;left:10px;z-index:600;background:rgba(255,255,255,.95);
   border:1px solid var(--bdr);border-radius:var(--r);padding:8px 11px;
   box-shadow:0 2px 10px rgba(0,0,0,.13);min-width:155px;max-width:200px}
 .oleg-hd{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}
@@ -220,7 +220,7 @@ a.rl:hover{opacity:.7}
 .dual-yr-fill{position:absolute;top:0;height:100%;background:var(--accent);border-radius:2px}
 
 /* MAP YEAR FILTER */
-#map-yr-ctrl{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;
+#map-yr-ctrl{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:600;
   background:rgba(255,255,255,.96);border:1px solid var(--bdr);border-radius:20px;
   padding:7px 14px 8px;box-shadow:0 2px 10px rgba(0,0,0,.13);
   display:flex;align-items:center;gap:10px;min-width:280px;max-width:380px;width:70%}
@@ -687,16 +687,21 @@ function initOrgLegend(){
       </div>`
     ).join('');
 }
-function toggleOrg(el,orgKey){
-  orgVis[orgKey]=!orgVis[orgKey];
-  el.classList.toggle('off',!orgVis[orgKey]);
+function updateMarkerVisibility(){
   D.sites.forEach(site=>{
     const m=markers[site.id];
     if(!m) return;
-    const show=site.orgs.some(o=>orgVis[o]!==false);
-    if(show){if(!MAP.hasLayer(m))m.addTo(MAP);}
+    const orgOk=site.orgs.some(o=>orgVis[o]!==false);
+    const yr=site.years&&site.years.match(/(\d{4})\D+(\d{4})/);
+    const yrOk=yr?parseInt(yr[1])<=MAP_YR_TO&&parseInt(yr[2])>=MAP_YR_FROM:true;
+    if(orgOk&&yrOk){if(!MAP.hasLayer(m))m.addTo(MAP);}
     else{if(MAP.hasLayer(m))m.remove();}
   });
+}
+function toggleOrg(el,orgKey){
+  orgVis[orgKey]=!orgVis[orgKey];
+  el.classList.toggle('off',!orgVis[orgKey]);
+  updateMarkerVisibility();
 }
 let MAP_YR_MIN=1900, MAP_YR_MAX=2025, MAP_YR_FROM=1900, MAP_YR_TO=2025;
 
@@ -746,14 +751,7 @@ function updateMapYrTrack(){
 }
 
 function filterMapByYear(){
-  D.sites.forEach(site=>{
-    const mk=markers[site.id];
-    if(!mk) return;
-    const m=site.years&&site.years.match(/(\d{4})\D+(\d{4})/);
-    const visible=m?parseInt(m[1])<=MAP_YR_TO&&parseInt(m[2])>=MAP_YR_FROM:true;
-    if(visible){if(!MAP.hasLayer(mk)) mk.addTo(MAP);}
-    else{if(MAP.hasLayer(mk)) mk.remove();}
-  });
+  updateMarkerVisibility();
 }
 
 function initMap(){
@@ -844,7 +842,7 @@ const ZONE_RED  ='rgba(220,38,38,0.10)';
 const ZONE_PLUGIN={
   id:'zoneShading',
   beforeDraw(chart){
-    const zones=chart.config._zones;
+    const zones=chart.options?.plugins?.zoneShading?.zones;
     if(!zones||!zones.length) return;
     const {ctx,chartArea:{left,right,top,bottom},scales:{y}}=chart;
     ctx.save();
@@ -1008,12 +1006,12 @@ function renderSite(){
   const ctx=document.getElementById('mc').getContext('2d');
   sChart=new Chart(ctx,{
     type:'scatter',data:{datasets},
-    _zones:zones,
+    
     plugins:[ZONE_PLUGIN],
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{
-        legend:{display:false},
+        legend:{display:false},zoneShading:{zones},
         tooltip:{callbacks:{label:c=>{
           const d=c.raw;
           const hNote=d.h?` [H src: ${d.h}]`:'';
@@ -1146,7 +1144,7 @@ function initSelects(){
       sel.appendChild(og);
     });
   });
-  pvp.value='Zinc';
+  pvp.selectedIndex=0;
 }
 function initPVOrg(){
   const sel=document.getElementById('pv-org');
@@ -1392,7 +1390,16 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
   const isMin=MIN_DIRECTION.has(param);
   const paramGroup=D.param_config[param]?.group||'';
   const datasets=[],legItems=[];
-  let palIdx=0,rawUnit='';
+  let rawUnit='';
+  // Build stable color map from ALL selected sites so colors don't shift when a site lacks data
+  const siteColorMap=new Map();
+  let ci=0;
+  pvSel.forEach(sid=>{
+    const site=D.sites.find(s=>s.id===sid);
+    if(!site) return;
+    siteColorMap.set(sid, PV_COLOR_BY==='palette'?PV_PALETTE[ci%PV_PALETTE.length]:getSiteColor(site,PV_COLOR_BY));
+    ci++;
+  });
   pvSel.forEach(sid=>{
     const site=D.sites.find(s=>s.id===sid);
     if(!site) return;
@@ -1403,7 +1410,7 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
     const nds=allRecs.filter(r=>r.nd);
     if(!allRecs.length) return;
     if(!rawUnit) rawUnit=recs[0]?.u||nds[0]?.u||'';
-    const col=PV_COLOR_BY==='palette'?PV_PALETTE[palIdx%PV_PALETTE.length]:getSiteColor(site,PV_COLOR_BY); palIdx++;
+    const col=siteColorMap.get(sid);
     const sName=site.name.length>32?site.name.slice(0,30)+'…':site.name;
     const cv=r=>toDisplayUnit(r.v,r.u||rawUnit,paramGroup).v;
     let acuteExc,chronExc,normal;
