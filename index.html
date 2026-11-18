@@ -608,7 +608,7 @@ a.rl:hover{opacity:.7}
       <span class="tg tg-cd">ROD TARGET</span><span>Idarado Record of Decision (ROD) compliance target for zinc — separate from state regulatory standards.</span>
       <span class="tg tg-ws">SPAWNING</span><span>Dissolved oxygen minimum (7.0 mg/L) that applies during cold-water fish spawning periods. Shown for reference; not used for exceedance flags.</span>
       <span class="tg tg-epa">EPA REFERENCE</span><span>EPA 304(a) recommended reference condition for nutrients. Not an enforceable standard.</span>
-      <span class="tg tg-tmdl">303(d)/TMDL</span><span>Segment on Colorado's impaired waters list for this parameter.</span>
+      <span class="tg tg-tmdl">303(d)/TMDL</span><span>Segment listing status under Regulation 93, shown in each site's header. <strong>303(d) impaired</strong>: not attaining the standard; a cleanup plan (TMDL) is needed. <strong>TMDL in place</strong>: impaired, with an approved cleanup plan. <strong>Monitoring &amp; Evaluation</strong>: possible non-attainment, but the data aren't conclusive — not an impairment listing.</span>
     </div>
   </div>
 
@@ -821,12 +821,7 @@ function initMap(){
     const badges=site.orgs.slice(0,3).map(o=>
       `<span style="background:${D.org_colors[o]||'#9e9e9e'};padding:1px 5px;border-radius:8px;font-size:9.5px;color:#fff;font-weight:600">${esc(D.org_labels[o]||o)}</span>`
     ).join(' ');
-    const is303d=site.cat==='5';
-    const hasTmdl=site.analyte&&site.analyte.includes('TMDL');
-    const is4a=site.cat==='4a'&&hasTmdl;
-    const impairLabel=is303d?(hasTmdl?'303(d)/TMDL':'303(d) impaired'):is4a?'TMDL (addressed)':'';
-    const impairStyle=is4a?'color:#e67e22':'';
-    const impairHtml=(is303d||is4a)&&site.analyte?`<div class="impair-note" style="${impairStyle}">⚠ ${impairLabel}: ${site.analyte.replace(/303\(d\) : |TMDL : |M&E : /g,'').replace(/; /g,', ').slice(0,80)}</div>`:'';
+    const impairHtml=listingHtml(site.analyte,', ');
     m.bindPopup(`
       <div class="pn">${esc(site.name)}</div>
       <div class="pm">${esc(site.id)} · ${SITE_CLASS_LABEL[site.cls]?esc(SITE_CLASS_LABEL[site.cls])+' · Receiving segment':'Segment'}: ${esc(site.seg||'—')} · ${esc(site.years)}</div>
@@ -840,6 +835,23 @@ function initMap(){
   });
 }
 
+// Group a segment's 303(d) analytes by listing type (Reg 93): impaired, TMDL in place, or Monitoring & Evaluation
+const LISTING_TYPES=[
+  {key:'303(d)',label:'303(d) impaired',col:'#c0392b',title:'On the Reg 93 303(d) list: not attaining the standard; a TMDL is needed'},
+  {key:'TMDL',label:'TMDL in place',col:'#e67e22',title:'Impaired, with an approved Total Maximum Daily Load (cleanup plan)'},
+  {key:'M&E',label:'Monitoring & Evaluation',col:'#6b7280',title:'Reg 93 Monitoring & Evaluation list: possible non-attainment, data not conclusive'},
+];
+function listingGroups(analyte){
+  const g={};
+  (analyte||'').split(/;\s*/).forEach(item=>{
+    const m=item.match(/^\s*(303\(d\)|TMDL|M&E)\s*:\s*(.+)$/);
+    if(m) (g[m[1]]=g[m[1]]||[]).push(m[2].trim());
+  });
+  return LISTING_TYPES.filter(t=>g[t.key]).map(t=>({...t,items:g[t.key]}));
+}
+function listingHtml(analyte,sep){
+  return listingGroups(analyte).map(t=>`<div class="impair-note" style="color:${t.col}" title="${t.title}">${t.key==='M&E'?'':'⚠ '}<strong>${t.label}</strong> — ${esc(t.items.join(sep))}</div>`).join('');
+}
 const SITE_CLASS_LABEL={wwtf:'Wastewater effluent (Reg 85)',mine_discharge:'Mine discharge — no stream standards applied',groundwater:'Spring / groundwater — no stream standards applied'};
 const siteStdKey=s=>s.std!==undefined?s.std:s.seg;
 function selectSite(sid){
@@ -858,15 +870,7 @@ function selectSite(sid){
   // 303(d) impairment notice
   const so303=document.getElementById('so-303d');
   if(so303){
-    const hasTmdl=selSite.analyte&&selSite.analyte.includes('TMDL');
-    const is303d=selSite.cat==='5';
-    const is4a=selSite.cat==='4a'&&hasTmdl;
-    if((is303d||is4a)&&selSite.analyte){
-      const analStr=selSite.analyte.replace(/303\(d\) : |TMDL : |M&E : /g,'').replace(/; /g,' · ');
-      const label=is303d?(hasTmdl?'303(d)/TMDL impaired':'Reg 93 303(d) impaired'):'TMDL established';
-      const cls=is4a?'impair-note cat4a':'impair-note';
-      so303.innerHTML=`<div class="${cls}" style="margin-bottom:6px">⚠ <strong>${label}</strong> — ${esc(analStr)}</div>`;
-    } else { so303.innerHTML=''; }
+    so303.innerHTML=listingHtml(selSite.analyte,' · ');
   }
   document.getElementById('so').innerHTML=selSite.orgs.slice(0,6).map(o=>
     `<span class="ob" style="background:${D.org_colors[o]||'#9e9e9e'}">${esc(D.org_labels[o]||o)}</span>`
