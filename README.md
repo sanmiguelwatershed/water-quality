@@ -74,6 +74,7 @@ Spatial data:
 - **Units are normalized at build time:** °F to °C; total phosphorus µg/L to mg/L; consistent metal units.
 - **Implausible values are excluded from charts**, e.g. stream temperatures above 40 °C (typically °F values mislabeled as °C).
 - **Non-detects** are plotted at the reported detection or reporting limit and marked as non-detects. They are never flagged as exceedances.
+- **Zero values:** metals and inorganic chemistry results reported as exactly 0 with no detection flag are treated as non-detects with no reported limit. There are about 25,000 such records, mostly Colorado River Watch 2002–2011. They are plotted at 0 as non-detects and excluded from medians.
 
 ### Assigning sites to segments
 Every site is assigned to a CDPHE assessment unit (e.g. `COGUSM03b_A`). The unit identifies the Regulation 35 segment (`COGUSM03b` → segment 3b).
