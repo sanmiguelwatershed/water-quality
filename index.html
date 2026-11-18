@@ -541,11 +541,12 @@ a.rl:hover{opacity:.7}
       <strong>Per the Reg 35 segment tables:</strong>
       <ul style="margin:0.5em 0 0 1.2em">
         <li><strong>Acute: 340 µg/L dissolved</strong> — all segments (aquatic life).</li>
-        <li><strong>Chronic: 0.02 µg/L total recoverable</strong> — segments classified for Water Supply with Aquatic Life Class 1, or Class 2 with the Water + Fish qualifier (protects people who drink the water and eat fish from it).</li>
+        <li><strong>Chronic: 0.02 µg/L total recoverable</strong> — segments classified for Water Supply with Aquatic Life Class 1, or Class 2 with the Water + Fish qualifier. <em>Listed in the standards panel but not charted — see below.</em></li>
         <li><strong>Chronic: 7.6 µg/L total recoverable</strong> — segments without Water Supply (fish ingestion): 3a, 5b, 11a, 12c.</li>
         <li><strong>Chronic: 100 µg/L total recoverable</strong> — Ingram and Marshall Creeks (segments 6a, 6b; agriculture).</li>
       </ul>
-      <br>The 0.02 µg/L value is below what current laboratory methods can detect, so essentially every detected arsenic result exceeds it. A statewide temporary modification (As(ch)=hybrid, §35.6(2)(c), extended to 12/31/2029) sets interim effluent limits for permitted dischargers. It does not change the ambient standard shown here.
+      <br><strong>Why charts use 10 µg/L instead of 0.02 µg/L on water supply segments:</strong> the 0.02 µg/L value is calculated for a one-in-a-million lifetime cancer risk from drinking the untreated water and eating fish from it every day. It does not consider whether it can be measured or attained. It is below laboratory detection limits and below natural background in nearly all Colorado mountain streams, so every detected result would exceed it. The state is re-deriving it, with a statewide temporary modification for dischargers in place through 12/31/2029.<br><br>
+      Charts instead show <strong>10 µg/L</strong> as a screening level. That is the EPA drinking water limit (MCL) for tap water, and Regulation 31's attainment threshold for arsenic in water supply segments (Table III, footnote 13). Results above 10 µg/L are flagged. The 0.02 µg/L standard of record still appears in each site's standards panel.
     </div>
   </div>
 
@@ -1015,7 +1016,7 @@ function renderSite(){
   const hasAmber=zones.some(z=>z.color===ZONE_AMBER);
   const hasRed  =zones.some(z=>z.color===ZONE_RED);
   if(hasGreen) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(16,185,129,0.45)"></span>Attaining</span>`);
-  if(hasAmber) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(245,158,11,0.55)"></span>${isMin?'Below acute std':'Chronic exceedance'}</span>`);
+  if(hasAmber) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(245,158,11,0.55)"></span>${isMin?'Below acute std':stds.some(x=>x.screen&&x.type==='chronic')?'Above screening level':'Chronic exceedance'}</span>`);
   if(hasRed)   legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(220,38,38,0.40)"></span>${isMin?'Below chronic std':'Acute exceedance'}</span>`);
   if(seasonal){
     legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${EX_COL.chronic}"></span>${reg85?'12-month median above limit':'Chronic exceedance (in season)'}</span>`);
@@ -1094,6 +1095,7 @@ const STD_STYLES={
   'water_supply':   {col:'#059669',dash:[4,4]},
   'spawning':       {col:'#059669',dash:[2,3]},
   'reg85_median':   {col:'#2563eb',dash:[5,3]},
+  'screen':         {col:'#2563eb',dash:[2,4]},
   'reg85_p95':      {col:'#dc2626',dash:[6,3]},
   'range':          {col:'#7c3aed',dash:[3,3]},
 };
@@ -1120,6 +1122,7 @@ function stdLineLabel(type,param){
     'chronic': temp?'Chronic standard — max weekly average (MWAT), seasonal':isMin?'Chronic minimum (year-round)':'Chronic standard — 30-day average',
     'spawning':'Spawning minimum — applies during fish spawning',
     'reg85_median':'Reg 85 limit — rolling 12-month median',
+    'screen':'Drinking-water screening level (EPA MCL) — not the Reg 35 standard',
     'reg85_p95':'Reg 85 limit — 12-month 95th percentile',
     'consent_decree':'Idarado ROD zinc target',
     'consent_decree_context':'Idarado ROD target (context)',
@@ -1130,7 +1133,7 @@ function stdLineLabel(type,param){
 }
 
 function stdLineLegend(stds,param){
-  const types=[...new Set(stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))).map(s=>s.type))];
+  const types=[...new Set(stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))&&s.type!=='record').map(s=>s.screen?'screen':s.type))];
   return types.map(t=>{
     const st=STD_STYLES[t]||{col:'#888',dash:[4,4]};
     return `<span class="lgi"><svg width="24" height="8" style="flex-shrink:0;margin-right:3px"><line x1="0" y1="4" x2="24" y2="4" stroke="${st.col}" stroke-width="2" stroke-dasharray="${st.dash.join(',')}"/></svg>${stdLineLabel(t,param)}</span>`;
@@ -1144,8 +1147,8 @@ function buildStdLines(stds,recs){
   // Extend ±1 year so single-point sites still render a visible horizontal line
   const xMin=`${yr0-1}-01-01`, xMax=`${yr1+1}-12-31`;
   const out=[];
-  stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))).forEach(s=>{
-    const st=STD_STYLES[s.type]||{col:'#888',dash:[4,4]};
+  stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))&&s.type!=='record').forEach(s=>{
+    const st=STD_STYLES[s.screen?'screen':s.type]||{col:'#888',dash:[4,4]};
     const frac=s.frac&&!['nan','None',''].includes(s.frac)?` (${s.frac})`:'';
     const rangeLabel=s.bound==='lower'?'Lower bound':s.bound==='upper'?'Upper bound':'Range';
     const typeLabel={'acute':'Acute std','chronic':'Chronic std','consent_decree':'ROD target','consent_decree_context':'ROD context','epa_reference':'EPA ref','water_supply':'Water supply std','spawning':'Spawning min','reg85_median':'Reg 85 annual median','reg85_p95':'Reg 85 95th pct','range':rangeLabel}[s.type]||s.type;
@@ -1160,7 +1163,7 @@ function buildStdLines(stds,recs){
       }
     }
     out.push({
-      label:`${typeLabel}${frac}${s.season?` (${fmtSeason(s)})`:''}: ${s.value} ${s.unit}`,
+      label:`${s.screen?'Drinking-water screening level':typeLabel}${frac}${s.season?` (${fmtSeason(s)})`:''}: ${s.value} ${s.unit}`,
       data,spanGaps:false,
       borderColor:st.col,borderWidth:1.5,borderDash:st.dash,
       pointRadius:0,showLine:true,tension:0,type:'line',
@@ -1188,7 +1191,9 @@ function renderStdInfo(stds,param){
     'range_lower':'<span class="tg tg-rng">LOWER BOUND</span>',
     'range_upper':'<span class="tg tg-rng">UPPER BOUND</span>',
   };
-  const getTag=s=>s.type==='range'?TAGS[`range_${s.bound}`]||'<span class="tg tg-rng">RANGE</span>':TAGS[s.type]||`<span class="tg">${s.type}</span>`;
+  TAGS.record='<span class="tg">REG 35 STANDARD · NOT CHARTED</span>';
+  TAGS.screen='<span class="tg tg-c">SCREENING LEVEL</span>';
+  const getTag=s=>s.screen?TAGS.screen:s.type==='range'?TAGS[`range_${s.bound}`]||'<span class="tg tg-rng">RANGE</span>':TAGS[s.type]||`<span class="tg">${s.type}</span>`;
   const dir=isMin?'< ':'';
   document.getElementById('sr-rows').innerHTML=stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))).map(s=>{
     const tag=getTag(s);
@@ -1210,6 +1215,8 @@ function renderStdInfo(stds,param){
   } else if(D.param_config[param]?.hardness_based){
     const H=stds.find(s=>s.is_hardness)?.hardness_used;
     srNote.innerHTML=H?`<p class="sr-footnote">Reference lines calculated at segment geometric mean hardness (${H} mg/L CaCO₃) per Reg 31 Table III. Per-sample exceedance flags use measured hardness from the same activity where available.</p>`:'';
+  } else if(stds.some(s=>s.type==='record')){
+    srNote.innerHTML=`<p class="sr-footnote">Reg 35 sets chronic arsenic at 0.02 µg/L (total recoverable) on this segment — the "Water + Fish" value for a 1-in-a-million lifetime cancer risk from drinking the water and eating fish from it daily. It is below what laboratories can measure and below natural background in nearly all Colorado mountain streams, and the state is revising it through 2029. Charts therefore use 10 µg/L — the EPA drinking water limit and Reg 31's attainment threshold for water supply segments — as a screening level.</p>`;
   } else if(stds.some(s=>s.type.startsWith('reg85'))){
     const mx=selSite?.max_mgd;
     const status=mx!=null&&mx>1.0
@@ -1581,7 +1588,7 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
       stdLines.forEach(s=>{s._std=true;});
       datasets.push(...stdLines);
       stdLegend=stdLineLegend(stds,param);
-      stdTypes=[...new Set(stds.map(s=>s.type))];
+      stdTypes=[...new Set(stds.filter(s=>s.type!=='record').map(s=>s.screen?'screen':s.type))];
     }
     stdNote=tvsNote+(stds.length?(uSegs.length===1?`Standards shown for segment ${uSegs[0]}.`:`Standards shown apply to all ${uSegs.length} selected segments.`):'');
   } else if(uSegs.length>1){
