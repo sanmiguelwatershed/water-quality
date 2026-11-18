@@ -1151,31 +1151,40 @@ function buildStdLines(stds,recs){
   // Extend ±1 year so single-point sites still render a visible horizontal line
   const xMin=`${yr0-1}-01-01`, xMax=`${yr1+1}-12-31`;
   const out=[];
-  stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))&&s.type!=='record').forEach(s=>{
-    const st=STD_STYLES[s.screen?'screen':s.type]||{col:'#888',dash:[4,4]};
-    const frac=s.frac&&!['nan','None',''].includes(s.frac)?` (${s.frac})`:'';
+  const drawn=stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))&&s.type!=='record');
+  const typeLabelOf=s=>{
     const rangeLabel=s.bound==='lower'?'Lower bound':s.bound==='upper'?'Upper bound':'Range';
-    const typeLabel={'acute':'Acute std','chronic':'Chronic std','consent_decree':'ROD target','consent_decree_context':'ROD context','epa_reference':'EPA ref','water_supply':'Water supply std','spawning':'Spawning min','reg85_median':'Reg 85 annual median','reg85_p95':'Reg 85 95th pct','range':rangeLabel}[s.type]||s.type;
-    let data=[{x:xMin,y:s.value},{x:xMax,y:s.value}];
-    if(s.season){
-      // One segment per year for the season window; null breaks the line between seasons
-      const [a,b]=s.season, wraps=a>b;
-      data=[];
-      for(let y=yr0-1;y<=yr1+1;y++){
-        const endDay=b==='02-29'?((y+(wraps?1:0))%4===0?'02-29':'02-28'):b;
-        data.push({x:`${y}-${a}`,y:s.value},{x:`${y+(wraps?1:0)}-${endDay}`,y:s.value},{x:`${y+(wraps?1:0)}-${endDay}`,y:null});
-      }
+    return s.screen?'Drinking-water screening level':({'acute':'Acute std','chronic':'Chronic std','consent_decree':'ROD target','consent_decree_context':'ROD context','epa_reference':'EPA ref','water_supply':'Water supply std','spawning':'Spawning min','reg85_median':'Reg 85 annual median','reg85_p95':'Reg 85 95th pct','range':rangeLabel}[s.type]||s.type);
+  };
+  const lineStyle=s=>{const st=STD_STYLES[s.screen?'screen':s.type]||{col:'#888',dash:[4,4]};
+    return {borderColor:st.col,borderWidth:1.5,borderDash:st.dash,pointRadius:0,showLine:true,tension:0,type:'line'};};
+  drawn.filter(s=>!s.season).forEach(s=>{
+    const frac=s.frac&&!['nan','None',''].includes(s.frac)?` (${s.frac})`:'';
+    out.push({label:`${typeLabelOf(s)}${frac}: ${s.value} ${s.unit}`,data:[{x:xMin,y:s.value},{x:xMax,y:s.value}],...lineStyle(s)});
+  });
+  // Seasonal standards (temperature): one stepped line per type across all seasons
+  const seasonal=drawn.filter(s=>s.season);
+  [...new Set(seasonal.map(s=>s.type))].forEach(type=>{
+    const group=seasonal.filter(s=>s.type===type);
+    const segs=[];
+    for(let y=yr0-2;y<=yr1+1;y++){
+      group.forEach(s=>{
+        const [a,b]=s.season, wraps=a>b, ey=y+(wraps?1:0);
+        const endDay=b==='02-29'?(ey%4===0?'02-29':'02-28'):b;
+        segs.push({x0:`${y}-${a}`,x1:`${ey}-${endDay}`,v:s.value});
+      });
     }
-    out.push({
-      label:`${s.screen?'Drinking-water screening level':typeLabel}${frac}${s.season?` (${fmtSeason(s)})`:''}: ${s.value} ${s.unit}`,
-      data,spanGaps:false,
-      borderColor:st.col,borderWidth:1.5,borderDash:st.dash,
-      pointRadius:0,showLine:true,tension:0,type:'line',
+    segs.sort((p,q)=>p.x0<q.x0?-1:1);
+    const data=[];
+    segs.filter(g=>g.x1>=xMin&&g.x0<=xMax).forEach(g=>{
+      const x0=g.x0<xMin?xMin:g.x0, x1=g.x1>xMax?xMax:g.x1;
+      data.push({x:x0,y:g.v},{x:x1,y:g.v});
     });
+    const vals=group.map(s=>s.value);
+    out.push({label:`${typeLabelOf(group[0])} (seasonal): ${Math.min(...vals)}–${Math.max(...vals)} ${group[0].unit}`,data,...lineStyle(group[0]),stepped:false});
   });
   return out;
 }
-
 function renderStdInfo(stds,param){
   const si=document.getElementById('si');
   if(!stds.length){si.style.display='none';return;}
