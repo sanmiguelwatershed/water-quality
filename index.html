@@ -550,6 +550,15 @@ a.rl:hover{opacity:.7}
   </div>
 
   <div class="gs">
+    <h3>Temperature Standards</h3>
+    <p>Each segment's Reg 35 table assigns a temperature tier (e.g. CS-I for cold streams with cutthroat or brook trout, WS-II for warm streams, CL/CLL for cold lakes). Reg 31 Table I sets each tier's seasonal values. Segments 3b and 4b have their own seasonal values listed in their Reg 35 tables.</p>
+    <div class="co co-blue">
+      <strong>Acute</strong> applies to the daily maximum (DM). <strong>Chronic</strong> applies to the maximum weekly average temperature (MWAT). Both change by season, so charts show stepped lines for each season and color the dots that exceed the standard in effect on that date.<br><br>
+      Most readings here are single grab samples, so comparisons are a screening indicator. Formal assessment uses continuous logger data.
+    </div>
+  </div>
+
+  <div class="gs">
     <h3>Idarado Consent Decree Zinc Standard</h3>
     <p>Sites on the San Miguel mainstem from the Pandora Mill (Telluride) downstream to the South Fork confluence are subject to a separate compliance target from the 1987 Idarado Record of Decision, in addition to the Reg 35 zinc standard (site-specific chronic 190 µg/L dissolved in segments 3a and 3b):</p>
     <div class="co co-gold">
@@ -946,9 +955,10 @@ function renderSite(){
   const seg=selSite.seg;
   const idaradoSeg=seg==='COGUSM03a_A'||seg==='COGUSM03b_A';
   const rawStds=(D.standards[seg]&&D.standards[seg][param])||[];
-  const stds=rawStds.filter(s=>(s.type==='consent_decree'||s.type==='consent_decree_context')?idaradoSeg:true);
   const MIN_DIRECTION=new Set(['Dissolved Oxygen']);
   const isMin=MIN_DIRECTION.has(param);
+  const stds=bindingStds(rawStds.filter(s=>(s.type==='consent_decree'||s.type==='consent_decree_context')?idaradoSeg:true),isMin);
+  const seasonal=stds.some(s=>s.season);
   const isHardness=D.param_config[param]?.hardness_based||false;
   const orgMap={};
   recs.forEach(r=>{if(!orgMap[r.o])orgMap[r.o]=[];orgMap[r.o].push(r);});
@@ -966,7 +976,9 @@ function renderSite(){
   const cdEx=idaradoSeg?recs.filter(r=>r.ex_cd&&!r.nd):[];
   const hasND=recs.some(r=>r.nd);
   // Compute traffic-light zones from standards
-  const zones=computeTrafficZones(stds,isMin);
+  // Seasonal standards change through the year, so a single shaded band would be wrong — color the dots instead
+  const zones=seasonal?[]:computeTrafficZones(stds,isMin);
+  const EX_COL={acute:'#dc2626',chronic:'#f59e0b'};
   // Build legend — zone swatches + org data-source badges (all dots uniform color)
   const orgs=Object.keys(orgMap);
   const legParts=[];
@@ -978,8 +990,11 @@ function renderSite(){
   if(hasGreen) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(16,185,129,0.45)"></span>Attaining</span>`);
   if(hasAmber) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(245,158,11,0.55)"></span>${isMin?'Below acute std':'Chronic exceedance'}</span>`);
   if(hasRed)   legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(220,38,38,0.40)"></span>${isMin?'Below chronic std':'Acute exceedance'}</span>`);
-  // ROD consent-decree context (Idarado only — no shading, just note in legend)
-  if(idaradoSeg&&stds.some(s=>s.type==='consent_decree')) legParts.push(`<span class="lgi"><span class="lg-dot" style="background:#92400e"></span>ROD target (dashed line)</span>`);
+  if(seasonal){
+    legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${EX_COL.chronic}"></span>Chronic exceedance (in season)</span>`);
+    legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${EX_COL.acute}"></span>Acute exceedance (in season)</span>`);
+  }
+  legParts.push(stdLineLegend(stds,param));
   // Data-source (org) entries — uniform dot color since zones handle status
   orgs.forEach(o=>{
     const hasND=orgMap[o].some(r=>r.nd);
@@ -997,7 +1012,8 @@ function renderSite(){
     if(normals.length) datasets.push({
       label:D.org_labels[org]||org,
       data:normals.map(r=>({x:r.d,y:r.v,h:r.h_src})),
-      borderColor:DOT_COL,backgroundColor:DOT_COL,
+      borderColor:DOT_COL,
+      backgroundColor:seasonal?normals.map(r=>r.ex_acute?EX_COL.acute:r.ex_chronic?EX_COL.chronic:DOT_COL):DOT_COL,
       pointRadius:PT_R,pointHoverRadius:PT_H,
       borderWidth:0,showLine:false,
     });
@@ -1040,33 +1056,79 @@ function renderSite(){
   renderStdInfo(stds,param);
 }
 
+const STD_STYLES={
+  'acute':          {col:'#dc2626',dash:[6,3]},
+  'chronic':        {col:'#2563eb',dash:[5,3]},
+  'consent_decree': {col:'#92400e',dash:[8,4]},
+  'consent_decree_context':{col:'#b45309',dash:[6,4]},
+  'epa_reference':  {col:'#16a34a',dash:[4,4]},
+  'water_supply':   {col:'#059669',dash:[4,4]},
+  'spawning':       {col:'#059669',dash:[2,3]},
+  'range':          {col:'#7c3aed',dash:[3,3]},
+};
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtSeason=s=>s.season?s.season.map(md=>`${MONTHS[+md.slice(0,2)-1]} ${+md.slice(3)}`).join('–'):'';
+
+// Reg 35 lists only the most stringent standard; where a cell has two (e.g. Mn "TVS/WS"), keep the strictest per type.
+// Seasonal standards (temperature) keep one entry per season.
+function bindingStds(stds,isMin){
+  const best=new Map();
+  stds.forEach(s=>{
+    if(s.value==null||isNaN(Number(s.value))) return;
+    const k=`${s.type}|${s.bound||''}|${s.season?s.season.join('/'):''}`;
+    const cur=best.get(k);
+    if(!cur||(isMin?s.value>cur.value:s.value<cur.value)) best.set(k,s);
+  });
+  return [...best.values()];
+}
+
+function stdLineLabel(type,param){
+  const temp=param==='Temperature', isMin=param==='Dissolved Oxygen';
+  return {
+    'acute': temp?'Acute standard — daily maximum (DM), seasonal':isMin?'Acute minimum':'Acute standard — single sample / 1-day',
+    'chronic': temp?'Chronic standard — max weekly average (MWAT), seasonal':isMin?'Chronic minimum (year-round)':'Chronic standard — 30-day average',
+    'spawning':'Spawning minimum — applies during fish spawning',
+    'consent_decree':'Idarado ROD zinc target',
+    'consent_decree_context':'Idarado ROD target (context)',
+    'epa_reference':'EPA reference condition (not enforceable)',
+    'water_supply':'Water supply standard',
+    'range':'pH range limits',
+  }[type]||type;
+}
+
+function stdLineLegend(stds,param){
+  const types=[...new Set(stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))).map(s=>s.type))];
+  return types.map(t=>{
+    const st=STD_STYLES[t]||{col:'#888',dash:[4,4]};
+    return `<span class="lgi"><svg width="24" height="8" style="flex-shrink:0;margin-right:3px"><line x1="0" y1="4" x2="24" y2="4" stroke="${st.col}" stroke-width="2" stroke-dasharray="${st.dash.join(',')}"/></svg>${stdLineLabel(t,param)}</span>`;
+  }).join('');
+}
+
 function buildStdLines(stds,recs){
   if(!stds.length||!recs.length) return [];
   const dates=recs.map(r=>r.d).sort();
   const yr0=+dates[0].slice(0,4), yr1=+dates[dates.length-1].slice(0,4);
   // Extend ±1 year so single-point sites still render a visible horizontal line
   const xMin=`${yr0-1}-01-01`, xMax=`${yr1+1}-12-31`;
-  const STYLES={
-    'acute':          {col:'#dc2626',dash:[6,3]},
-    'chronic':        {col:'#2563eb',dash:[5,3]},
-    'consent_decree': {col:'#92400e',dash:[8,4]},
-    'consent_decree_context':{col:'#b45309',dash:[6,4]},
-    'epa_reference':  {col:'#16a34a',dash:[4,4]},
-    'water_supply':   {col:'#059669',dash:[4,4]},
-    'spawning':       {col:'#059669',dash:[2,3]},
-    'range':          {col:'#7c3aed',dash:[3,3]},
-  };
-  const seen=new Set(), out=[];
+  const out=[];
   stds.filter(s=>s.value!=null&&!isNaN(Number(s.value))).forEach(s=>{
-    const k=`${s.type}_${s.value}`;
-    if(seen.has(k)) return; seen.add(k);
-    const st=STYLES[s.type]||{col:'#888',dash:[4,4]};
+    const st=STD_STYLES[s.type]||{col:'#888',dash:[4,4]};
     const frac=s.frac&&!['nan','None',''].includes(s.frac)?` (${s.frac})`:'';
     const rangeLabel=s.bound==='lower'?'Lower bound':s.bound==='upper'?'Upper bound':'Range';
     const typeLabel={'acute':'Acute std','chronic':'Chronic std','consent_decree':'ROD target','consent_decree_context':'ROD context','epa_reference':'EPA ref','water_supply':'Water supply std','spawning':'Spawning min','range':rangeLabel}[s.type]||s.type;
+    let data=[{x:xMin,y:s.value},{x:xMax,y:s.value}];
+    if(s.season){
+      // One segment per year for the season window; null breaks the line between seasons
+      const [a,b]=s.season, wraps=a>b;
+      data=[];
+      for(let y=yr0-1;y<=yr1+1;y++){
+        const endDay=b==='02-29'?((y+(wraps?1:0))%4===0?'02-29':'02-28'):b;
+        data.push({x:`${y}-${a}`,y:s.value},{x:`${y+(wraps?1:0)}-${endDay}`,y:s.value},{x:`${y+(wraps?1:0)}-${endDay}`,y:null});
+      }
+    }
     out.push({
-      label:`${typeLabel}${frac}: ${s.value} ${s.unit}`,
-      data:[{x:xMin,y:s.value},{x:xMax,y:s.value}],
+      label:`${typeLabel}${frac}${s.season?` (${fmtSeason(s)})`:''}: ${s.value} ${s.unit}`,
+      data,spanGaps:false,
       borderColor:st.col,borderWidth:1.5,borderDash:st.dash,
       pointRadius:0,showLine:true,tension:0,type:'line',
     });
@@ -1097,11 +1159,12 @@ function renderStdInfo(stds,param){
     const tag=getTag(s);
     const reg93=s.reg93&&s.reg93!=='nan'&&s.reg93!==''?`<span class="tg tg-tmdl" title="Reg 93 impairment">303(d)</span>`:'';
     const frac=s.frac&&!['nan','None',''].includes(s.frac)?` <em>${s.frac}</em>`:'';
-    const hNote=s.is_hardness&&s.hardness_used?` <span style="font-size:10px;color:var(--muted)">[H=${s.hardness_used} mg/L]</span>`:'';
+    const hNote=(s.is_hardness&&s.hardness_used?` <span style="font-size:10px;color:var(--muted)">[H=${s.hardness_used} mg/L]</span>`:'')
+      +(s.season?` <span style="font-size:10px;color:var(--muted)">${fmtSeason(s)}</span>`:'');
     const regNote=s.reg&&s.reg!=='nan'?`<div style="font-size:10px;color:var(--muted);margin-top:1px">${s.reg}</div>`:'';
     return `<div class="sr">
       <span class="sl" style="flex-direction:column;align-items:flex-start">${tag}${reg93}${frac}${hNote}${regNote}</span>
-      <span class="sv">${dir}${s.value} ${s.unit}</span>
+      <span class="sv">${dir}${+Number(s.value).toPrecision(4)} ${s.unit}</span>
     </div>`;
   }).join('');
   // Parameter-specific footnote
@@ -1112,6 +1175,8 @@ function renderStdInfo(stds,param){
   } else if(D.param_config[param]?.hardness_based){
     const H=stds.find(s=>s.is_hardness)?.hardness_used;
     srNote.innerHTML=H?`<p class="sr-footnote">Reference lines calculated at segment geometric mean hardness (${H} mg/L CaCO₃) per Reg 31 Table III. Per-sample exceedance flags use measured hardness from the same activity where available.</p>`:'';
+  } else if(param==='Temperature'){
+    srNote.innerHTML=`<p class="sr-footnote">Temperature standards are seasonal. The acute standard applies to the daily maximum (DM) and the chronic standard to the maximum weekly average temperature (MWAT). Single grab readings are compared to these as a screening indicator only; formal assessment uses continuous logger data.</p>`;
   } else {
     srNote.innerHTML='';
   }
@@ -1452,27 +1517,28 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
   const unit=toDisplayUnit(0,rawUnit,paramGroup).u;
   const segs=[...pvSel].map(sid=>D.sites.find(s=>s.id===sid)?.seg).filter(Boolean);
   const uSegs=[...new Set(segs)];
-  let stdNote='';
+  let stdNote='', stdLegend='';
   const isHardnessPV=D.param_config[param]?.hardness_based||false;
   if(uSegs.length===1){
     const idaradoSeg=uSegs[0]==='COGUSM03a_A'||uSegs[0]==='COGUSM03b_A';
     const rawStds=(D.standards[uSegs[0]]&&D.standards[uSegs[0]][param])||[];
-    const stds=rawStds.filter(s=>{
+    const stds=bindingStds(rawStds.filter(s=>{
       if(s.type==='consent_decree'||s.type==='consent_decree_context') return idaradoSeg;
-      if(isHardnessPV&&(s.type==='acute'||s.type==='chronic')) return false;
+      if(isHardnessPV&&s.is_hardness) return false;
       return true;
-    }).map(s=>({...s,value:toDisplayUnit(s.value,s.unit||'µg/L',paramGroup).v}));
+    }),isMin).map(s=>({...s,value:toDisplayUnit(s.value,s.unit||'µg/L',paramGroup).v}));
     const allPts=datasets.flatMap(d=>d.data);
     if(allPts.length&&stds.length){
       const stdLines=buildStdLines(stds,allPts.map(r=>({d:r.x,v:r.y})));
       stdLines.forEach(s=>{s._std=true;});
       datasets.push(...stdLines);
+      stdLegend=stdLineLegend(stds,param);
     }
     stdNote=isHardnessPV?'Exceedance flags use per-activity hardness. TVS threshold line not shown — it varies per sample.':(stds.length?`Standards shown for segment ${uSegs[0]}.`:'');
   } else if(uSegs.length>1){
     stdNote=isHardnessPV?'Exceedance flags use per-activity hardness. Standards not shown — sites span multiple segments.':'Standards not shown — selected sites span multiple segments.';
   }
-  return {datasets,legItems,stdNote,unit,hasData:legItems.length>0};
+  return {datasets,legItems,stdNote,stdLegend,unit,hasData:legItems.length>0};
 }
 const PV_LEG_SYMBOLS='<div style="width:100%;height:1px;background:var(--bdr);margin:6px 0"></div><div class="li" style="gap:12px;color:var(--muted)"><span style="display:flex;align-items:center;gap:4px"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="#555"/></svg> Attaining</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="none" stroke="#555" stroke-width="1.5" transform="rotate(180,6,6)"/></svg> Non-detect</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><rect x="1" y="1" width="10" height="10" fill="#555" transform="rotate(45,6,6)"/></svg> Chronic exc.</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><text x="6" y="10" text-anchor="middle" font-size="13" fill="#555">★</text></svg> Acute exc.</span></div>';
 function pvChartOptions(unit,small){
@@ -1530,14 +1596,14 @@ function pvRender(){
   }
   // Single param mode
   pvci.style.display=''; pvciM.style.display='none';
-  const {datasets,legItems,stdNote,unit,hasData}=pvBuildDatasetsForParam(param,yrFrom,yrTo);
+  const {datasets,legItems,stdNote,stdLegend,unit,hasData}=pvBuildDatasetsForParam(param,yrFrom,yrTo);
   if(!hasData){
     pvleg.innerHTML=''; pvnote.textContent='No data found for the selected sites and parameter. Try selecting different sites or adjusting the year range.'; return;
   }
   pvChart=new Chart(document.getElementById('pvc2').getContext('2d'),{type:'scatter',data:{datasets},options:pvChartOptions(unit,false)});
   const pvLegHuc=PV_COLOR_BY==='huc10'||PV_COLOR_BY==='huc12';
   const selSitesSingle=[...pvSel].map(sid=>D.sites.find(s=>s.id===sid)).filter(Boolean);
-  pvleg.innerHTML=(pvLegHuc?buildColorByLegend(PV_COLOR_BY,selSitesSingle):legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join(''))+PV_LEG_SYMBOLS;
+  pvleg.innerHTML=(pvLegHuc?buildColorByLegend(PV_COLOR_BY,selSitesSingle):legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join(''))+PV_LEG_SYMBOLS+(stdLegend?`<div class="li" style="gap:12px;flex-wrap:wrap;color:var(--muted)">${stdLegend}</div>`:'');
   pvnote.textContent=stdNote;
 }
 
