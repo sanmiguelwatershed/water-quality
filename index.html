@@ -559,6 +559,23 @@ a.rl:hover{opacity:.7}
   </div>
 
   <div class="gs">
+    <h3>Wastewater Effluent, Mine Discharge, and Spring Sites</h3>
+    <p>Reg 35 standards apply to streams and lakes, so they are only applied to surface water sites. Other sample types are handled separately:</p>
+    <ul>
+      <li><strong>Wastewater treatment facility (WWTF) effluent</strong> — compared with Regulation 85 nutrient effluent limits for existing domestic wastewater treatment works:
+        <ul>
+          <li>Total phosphorus: 1.0 mg/L (rolling 12-month median) and 2.5 mg/L (12-month 95th percentile).</li>
+          <li>Total inorganic nitrogen (ammonia + nitrate + nitrite, as N, calculated per sample date): 15 mg/L median and 20 mg/L 95th percentile.</li>
+        </ul>
+        A result is flagged when the median or 95th percentile of all samples in the preceding 12 months exceeds the limit.</li>
+      <li><strong>Mine discharges</strong> (adits, portals, tunnel discharges) and <strong>springs / groundwater</strong> — data only; no standards are applied.</li>
+    </ul>
+    <div class="co co-gold">
+      <strong>Reg 85 limits are not yet in permits in this watershed.</strong> The San Miguel basin (HUC 14030003) is listed as a low-priority watershed, so these limits cannot be added to permits before 12/31/2027 (§85.5(1)(a)(ii)). Facilities with design capacity ≤ 1.0 MGD or owned by disadvantaged communities are excluded entirely (§85.5(1)(a)(i)). The limits are shown here as a benchmark.
+    </div>
+  </div>
+
+  <div class="gs">
     <h3>Idarado Consent Decree Zinc Standard</h3>
     <p>Sites on the San Miguel mainstem from the Pandora Mill (Telluride) downstream to the South Fork confluence are subject to a separate compliance target from the 1987 Idarado Record of Decision, in addition to the Reg 35 zinc standard (site-specific chronic 190 µg/L dissolved in segments 3a and 3b):</p>
     <div class="co co-gold">
@@ -811,7 +828,7 @@ function initMap(){
     const impairHtml=(is303d||is4a)&&site.analyte?`<div class="impair-note" style="${impairStyle}">⚠ ${impairLabel}: ${site.analyte.replace(/303\(d\) : |TMDL : |M&E : /g,'').replace(/; /g,', ').slice(0,80)}</div>`:'';
     m.bindPopup(`
       <div class="pn">${esc(site.name)}</div>
-      <div class="pm">${esc(site.id)} · Segment: ${esc(site.seg||'—')} · ${esc(site.years)}</div>
+      <div class="pm">${esc(site.id)} · ${SITE_CLASS_LABEL[site.cls]?esc(SITE_CLASS_LABEL[site.cls])+' · Receiving segment':'Segment'}: ${esc(site.seg||'—')} · ${esc(site.years)}</div>
       <div class="po">${badges}</div>
       ${impairHtml}
       <div style="font-size:10.5px;color:#888;margin-bottom:5px">${site.n.toLocaleString()} measurements · ${site.params.length} parameters</div>
@@ -822,6 +839,8 @@ function initMap(){
   });
 }
 
+const SITE_CLASS_LABEL={wwtf:'Wastewater effluent (Reg 85)',mine_discharge:'Mine discharge — no stream standards applied',groundwater:'Spring / groundwater — no stream standards applied'};
+const siteStdKey=s=>s.std!==undefined?s.std:s.seg;
 function selectSite(sid){
   MAP.closePopup();
   selSite=D.sites.find(s=>s.id===sid);
@@ -832,7 +851,9 @@ function selectSite(sid){
   const sc=document.getElementById('sc');
   sc.style.display='flex'; sc.style.flexDirection='column'; sc.style.height='100%'; sc.style.overflow='hidden';
   document.getElementById('sn').textContent=selSite.name;
-  document.getElementById('sm').textContent=`${sid} · ${selSite.seg||'No segment'} · ${selSite.aql||''} · ${selSite.years}`;
+  document.getElementById('sm').textContent=SITE_CLASS_LABEL[selSite.cls]
+    ?`${sid} · ${SITE_CLASS_LABEL[selSite.cls]} · receiving segment ${selSite.seg||'—'} · ${selSite.years}`
+    :`${sid} · ${selSite.seg||'No segment'} · ${selSite.aql||''} · ${selSite.years}`;
   // 303(d) impairment notice
   const so303=document.getElementById('so-303d');
   if(so303){
@@ -958,11 +979,13 @@ function renderSite(){
   if(sChart){sChart.destroy();sChart=null;}
   const seg=selSite.seg;
   const idaradoSeg=seg==='COGUSM03a_A'||seg==='COGUSM03b_A';
-  const rawStds=(D.standards[seg]&&D.standards[seg][param])||[];
+  const stdKey=siteStdKey(selSite);
+  const rawStds=(D.standards[stdKey]&&D.standards[stdKey][param])||[];
   const MIN_DIRECTION=new Set(['Dissolved Oxygen']);
   const isMin=MIN_DIRECTION.has(param);
   const stds=bindingStds(rawStds.filter(s=>(s.type==='consent_decree'||s.type==='consent_decree_context')?idaradoSeg:true),isMin);
-  const seasonal=stds.some(s=>s.season);
+  const reg85=stds.some(s=>s.type.startsWith('reg85'));
+  const seasonal=stds.some(s=>s.season)||reg85;
   const isHardness=D.param_config[param]?.hardness_based||false;
   const orgMap={};
   recs.forEach(r=>{if(!orgMap[r.o])orgMap[r.o]=[];orgMap[r.o].push(r);});
@@ -995,8 +1018,8 @@ function renderSite(){
   if(hasAmber) legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(245,158,11,0.55)"></span>${isMin?'Below acute std':'Chronic exceedance'}</span>`);
   if(hasRed)   legParts.push(`<span class="lgi"><span class="lg-zone" style="background:rgba(220,38,38,0.40)"></span>${isMin?'Below chronic std':'Acute exceedance'}</span>`);
   if(seasonal){
-    legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${EX_COL.chronic}"></span>Chronic exceedance (in season)</span>`);
-    legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${EX_COL.acute}"></span>Acute exceedance (in season)</span>`);
+    legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${EX_COL.chronic}"></span>${reg85?'12-month median above limit':'Chronic exceedance (in season)'}</span>`);
+    legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${EX_COL.acute}"></span>${reg85?'12-month 95th percentile above limit':'Acute exceedance (in season)'}</span>`);
   }
   legParts.push(stdLineLegend(stds,param));
   // Data-source (org) entries — uniform dot color since zones handle status
@@ -1053,7 +1076,9 @@ function renderSite(){
     }
   });
   const hn=document.getElementById('hn');
-  if(isHardness){
+  if(selSite.cls==='mine_discharge'||selSite.cls==='groundwater'){
+    hn.textContent=`This is a ${selSite.cls==='groundwater'?'spring / groundwater':'mine discharge'} site, not a stream or lake, so Reg 35 surface water standards are not applied.`;
+  } else if(isHardness){
     const medH=stds.find(s=>s.hardness_used)?.hardness_used;
     hn.textContent=medH?`TVS line calculated at segment median hardness ${medH} mg/L CaCO₃. Individual exceedance flags use same-day or nearby hardness where available.`:'Hardness-based standard (TVS). Exceedance flags use measured hardness where available.';
   } else { hn.textContent=''; }
@@ -1068,6 +1093,8 @@ const STD_STYLES={
   'epa_reference':  {col:'#16a34a',dash:[4,4]},
   'water_supply':   {col:'#059669',dash:[4,4]},
   'spawning':       {col:'#059669',dash:[2,3]},
+  'reg85_median':   {col:'#2563eb',dash:[5,3]},
+  'reg85_p95':      {col:'#dc2626',dash:[6,3]},
   'range':          {col:'#7c3aed',dash:[3,3]},
 };
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1092,6 +1119,8 @@ function stdLineLabel(type,param){
     'acute': temp?'Acute standard — daily maximum (DM), seasonal':isMin?'Acute minimum':'Acute standard — single sample / 1-day',
     'chronic': temp?'Chronic standard — max weekly average (MWAT), seasonal':isMin?'Chronic minimum (year-round)':'Chronic standard — 30-day average',
     'spawning':'Spawning minimum — applies during fish spawning',
+    'reg85_median':'Reg 85 limit — rolling 12-month median',
+    'reg85_p95':'Reg 85 limit — 12-month 95th percentile',
     'consent_decree':'Idarado ROD zinc target',
     'consent_decree_context':'Idarado ROD target (context)',
     'epa_reference':'EPA reference condition (not enforceable)',
@@ -1119,7 +1148,7 @@ function buildStdLines(stds,recs){
     const st=STD_STYLES[s.type]||{col:'#888',dash:[4,4]};
     const frac=s.frac&&!['nan','None',''].includes(s.frac)?` (${s.frac})`:'';
     const rangeLabel=s.bound==='lower'?'Lower bound':s.bound==='upper'?'Upper bound':'Range';
-    const typeLabel={'acute':'Acute std','chronic':'Chronic std','consent_decree':'ROD target','consent_decree_context':'ROD context','epa_reference':'EPA ref','water_supply':'Water supply std','spawning':'Spawning min','range':rangeLabel}[s.type]||s.type;
+    const typeLabel={'acute':'Acute std','chronic':'Chronic std','consent_decree':'ROD target','consent_decree_context':'ROD context','epa_reference':'EPA ref','water_supply':'Water supply std','spawning':'Spawning min','reg85_median':'Reg 85 annual median','reg85_p95':'Reg 85 95th pct','range':rangeLabel}[s.type]||s.type;
     let data=[{x:xMin,y:s.value},{x:xMax,y:s.value}];
     if(s.season){
       // One segment per year for the season window; null breaks the line between seasons
@@ -1154,6 +1183,8 @@ function renderStdInfo(stds,param){
     'epa_reference':'<span class="tg tg-epa">EPA REFERENCE</span>',
     'water_supply':'<span class="tg tg-ws">WATER SUPPLY</span>',
     'spawning':'<span class="tg tg-ws">SPAWNING</span>',
+    'reg85_median':'<span class="tg tg-c">REG 85 · 12-MO MEDIAN</span>',
+    'reg85_p95':'<span class="tg tg-a">REG 85 · 12-MO 95TH PCT</span>',
     'range_lower':'<span class="tg tg-rng">LOWER BOUND</span>',
     'range_upper':'<span class="tg tg-rng">UPPER BOUND</span>',
   };
@@ -1179,6 +1210,8 @@ function renderStdInfo(stds,param){
   } else if(D.param_config[param]?.hardness_based){
     const H=stds.find(s=>s.is_hardness)?.hardness_used;
     srNote.innerHTML=H?`<p class="sr-footnote">Reference lines calculated at segment geometric mean hardness (${H} mg/L CaCO₃) per Reg 31 Table III. Per-sample exceedance flags use measured hardness from the same activity where available.</p>`:'';
+  } else if(stds.some(s=>s.type.startsWith('reg85'))){
+    srNote.innerHTML=`<p class="sr-footnote">Reg 85 effluent limits for existing domestic wastewater treatment works. Dots are flagged when the median or 95th percentile of all samples in the preceding 12 months exceeds the limit. <strong>Not yet in permits here:</strong> the San Miguel basin is a low-priority watershed, so limits cannot be added before 12/31/2027. Facilities ≤ 1.0 MGD design capacity or owned by disadvantaged communities are excluded. Shown as a benchmark.</p>`;
   } else if(param==='Temperature'){
     srNote.innerHTML=`<p class="sr-footnote">Temperature standards are seasonal. The acute standard applies to the daily maximum (DM) and the chronic standard to the maximum weekly average temperature (MWAT). Single grab readings are compared to these as a screening indicator only; formal assessment uses continuous logger data.</p>`;
   } else {
@@ -1494,7 +1527,7 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
     const cv=r=>toDisplayUnit(r.v,r.u||rawUnit,paramGroup).v;
     let acuteExc,chronExc,normal;
     if(isMin){
-      const siteStds=(D.standards[site.seg]&&D.standards[site.seg][param])||[];
+      const siteStds=(D.standards[siteStdKey(site)]&&D.standards[siteStdKey(site)][param])||[];
       const aStdRaw=siteStds.find(s=>s.type==='acute');
       const cStdRaw=siteStds.find(s=>s.type==='chronic');
       const aStd=aStdRaw?toDisplayUnit(aStdRaw.value,aStdRaw.unit||'mg/L',paramGroup).v:null;
@@ -1519,7 +1552,7 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
     if(allRecs.length) legItems.push({label:site.name,col});
   });
   const unit=toDisplayUnit(0,rawUnit,paramGroup).u;
-  const segs=[...pvSel].map(sid=>D.sites.find(s=>s.id===sid)?.seg).filter(Boolean);
+  const segs=[...pvSel].map(sid=>{const s=D.sites.find(x=>x.id===sid);return s?siteStdKey(s):null;}).filter(Boolean);
   const uSegs=[...new Set(segs)];
   let stdNote='', stdLegend='';
   const isHardnessPV=D.param_config[param]?.hardness_based||false;
@@ -1715,6 +1748,7 @@ function lpBuild(){
   const segF=document.getElementById('lp-seg').value;
   lpFiltered=D.sites.filter(s=>{
     if(s.dist_km==null) return false;
+    if(s.cls&&s.cls!=='surface') return false;  // in-stream profile only
     if(orgF&&!s.orgs.includes(orgF)) return false;
     if(h10F&&s.huc10!==h10F) return false;
     if(h12F&&s.huc12!==h12F) return false;

@@ -35,7 +35,7 @@ This GitHub repository holds only what the website needs. The source data and bu
 | `shp_to_kmz.py` | Utility: converts a zipped shapefile to KMZ for Google Earth |
 | `reg35_segments.json` | Parsed Reg 35 segment tables (written by `build_standards.py`) |
 | `stream_standards_san_miguel.geojson`, `lake_standards.geojson` | CDPHE stream and lake segment (assessment unit) layers |
-| `../Water Quality Regulations/` | Regulation PDFs (5 CCR 1002-31, -35, -93) |
+| `../Water Quality Regulations/` | Regulation PDFs (5 CCR 1002-31, -35, -85, -93) |
 
 ## Data sources
 
@@ -82,8 +82,32 @@ Every site is assigned to a CDPHE assessment unit (e.g. `COGUSM03b_A`). The unit
 - **303(d) status** (impairment category and listed analytes) is attached from the same layers.
 - The sites sheet columns `Ag`, `AQLife`, `Rec`, `WS` are **303(d) assessment status codes** (F = fully supporting, N = not supporting, I = insufficient information, X = not assessed). They are not use classifications. Use classifications come from Regulation 35.
 
+### Site types
+Each site has a `site_class` in the sites sheet (editable; initially assigned from site IDs, names, and location types):
+
+| Class | Sites | Standards applied |
+|---|---|---|
+| `surface` | Streams, rivers, lakes, reservoirs | Reg 35 segment standards (below) |
+| `wwtf` | Wastewater treatment facility effluent (`…-EFF` sites) | Regulation 85 effluent limits |
+| `mine_discharge` | Adits, portals, tunnel discharges | None (data only) |
+| `groundwater` | Springs and seeps | None (data only) |
+
+Non-surface sites keep their nearest segment as the *receiving* segment for reference. They are excluded from the Longitudinal Profile and don't show the segment's 303(d) status.
+
+### Wastewater effluent (Regulation 85)
+WWTF effluent is compared with the Reg 85 §85.5(1)(a)(iii) limits for existing domestic wastewater treatment works:
+
+| Parameter | Rolling 12-month median | 12-month 95th percentile |
+|---|---|---|
+| Total phosphorus | 1.0 mg/L | 2.5 mg/L |
+| Total inorganic nitrogen (as N) | 15 mg/L | 20 mg/L |
+
+- **TIN calculation:** total inorganic nitrogen is calculated per sample date as ammonia + nitrate + nitrite. Non-detects count as zero.
+- **Flagging:** each result is flagged if the median or 95th percentile of all samples in the preceding 12 months exceeds the limit.
+- **Benchmark only:** these limits are not yet in permits here. The San Miguel basin (HUC 14030003) is a low-priority watershed, so limits cannot be added before 12/31/2027 (§85.5(1)(a)(ii)). Facilities ≤ 1.0 MGD design capacity or owned by disadvantaged communities are excluded (§85.5(1)(a)(i)).
+
 ### Standards
-Standards come from each segment's table in **Regulation 35, Appendix 35-1** (the edition in the Drive folder, currently effective 12/31/2024).
+Standards for surface water sites come from each segment's table in **Regulation 35, Appendix 35-1** (the edition in the Drive folder, currently effective 12/31/2024).
 - Per Reg 35 §35.6(1), each table lists only the most stringent standard for each parameter. That value is the standard used here.
 - **The segment's use classifications** (aquatic life class, recreation, agriculture, water supply) determine its table values. Examples: chronic arsenic of 0.02 µg/L (Water + Fish) on water supply segments, 7.6 µg/L (fish ingestion) where there is no water supply use, and 100 µg/L (agriculture) on segments 6a and 6b.
 - **"TVS" (table value standard) entries** are resolved with the hardness equations in **Regulation 31 Table III**. Hardness is capped at 400 mg/L CaCO₃.
@@ -144,7 +168,7 @@ python3 build_standards.py
 
 ### `build_app_data.py`
 Builds `app_data.json` for the web app from the master workbook.
-- Assigns sites to stream or lake segments and attaches 303(d) status.
+- Assigns sites to stream or lake segments and attaches 303(d) status; applies Reg 35 standards to surface sites and Reg 85 limits to WWTF effluent.
 - Normalizes units, handles non-detects, and filters implausible values.
 - Builds per-segment standards, computing TVS values at segment median hardness.
 - Flags acute, chronic, and Idarado exceedances for every result (per-sample hardness for TVS; in-season standard for temperature).
@@ -186,6 +210,7 @@ python3 shp_to_kmz.py path/to/layer.zip
 
 - **5 CCR 1002-31 (Regulation 31):** Basic Standards and Methodologies for Surface Water. Tables I–III (physical/biological, inorganic, and metal standards).
 - **5 CCR 1002-35 (Regulation 35):** Classifications and Numeric Standards for the Gunnison and Lower Dolores River Basins. Appendix 35-1 segment tables.
+- **5 CCR 1002-85 (Regulation 85):** Nutrients Management Control Regulation. Effluent limits and monitoring for wastewater dischargers.
 - **5 CCR 1002-93 (Regulation 93):** Colorado's Section 303(d) List of Impaired Waters.
 - **Record of Decision, Idarado Mining and Milling Complex:** State of Colorado v. Idarado Mining Co., Civil Action 83-C-2385, March 1987.
 - **USGS TWRI Book 3, Chapter A8:** Discharge Measurements at Gaging Stations.
