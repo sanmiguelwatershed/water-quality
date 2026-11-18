@@ -104,6 +104,7 @@ WWTF effluent is compared with the Reg 85 §85.5(1)(a)(iii) limits for existing 
 
 - **TIN calculation:** total inorganic nitrogen is calculated per sample date as ammonia + nitrate + nitrite. Non-detects count as zero.
 - **Flagging:** each result is flagged if the median or 95th percentile of all samples in the preceding 12 months exceeds the limit.
+- **Per-plant status:** a plant whose reported effluent flow has exceeded 1.0 MGD (currently only Telluride) is shown as *delayed, likely applicable after 12/31/2027*. All others are shown as *possibly exempt*, pending confirmation of design capacity.
 - **Benchmark only:** these limits are not yet in permits here. The San Miguel basin (HUC 14030003) is a low-priority watershed, so limits cannot be added before 12/31/2027 (§85.5(1)(a)(ii)). Facilities ≤ 1.0 MGD design capacity or owned by disadvantaged communities are excluded (§85.5(1)(a)(i)).
 
 ### Standards
