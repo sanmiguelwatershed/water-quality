@@ -73,14 +73,19 @@ Spatial data:
 - Each record keeps its original organization, method, fraction (dissolved / total recoverable), and source file.
 - **Units are normalized at build time:** °F to °C; total phosphorus µg/L to mg/L; consistent metal units.
 - **Implausible values are excluded from charts**, e.g. stream temperatures above 40 °C (typically °F values mislabeled as °C).
-- **Non-detects** are plotted at the reported detection or reporting limit and marked as non-detects. They are never flagged as exceedances.
+- **Non-detects** are results the lab reported as "not detected", "non-detect", "below detection/reporting limit", or "<". They are plotted as triangles at the reporting limit (or the method detection limit if no reporting limit is given) and never flagged as exceedances. The tooltip shows "not detected (< limit)".
+- **Estimated values:** results flagged `J` or "present below quantification limit" were detected, but below the level the lab can quantify reliably. They are plotted as normal results, labeled "estimated" in the tooltip.
+- **Why non-detects can sit above detected results:** a non-detect is drawn at its reporting limit (e.g. < 0.05 mg/L), while estimated detections from the same lab can be lower (e.g. 0.011 mg/L). Reporting limits also differ between labs and years. The true value of a non-detect is anywhere between 0 and the limit.
 - **Zero values:** metals and inorganic chemistry results reported as exactly 0 with no detection flag are treated as non-detects with no reported limit. There are about 25,000 such records, mostly Colorado River Watch 2002–2011. They are plotted at 0 as non-detects and excluded from medians.
 
 ### Assigning sites to segments
 Every site is assigned to a CDPHE assessment unit (e.g. `COGUSM03b_A`). The unit identifies the Regulation 35 segment (`COGUSM03b` → segment 3b).
 - **Stream sites:** nearest stream assessment unit (spatial join in UTM 13N).
 - **Lake and reservoir sites:** any site that falls inside a lake polygon is assigned to that lake's segment (e.g. Cone, Gurley, and Trout Lake → `COGUSM20_A`; Miramonte → `COGUSM20_B`).
-- **303(d) status** (impairment category and listed analytes) is attached from the same layers.
+- **303(d) status** is attached from the same layers and shown in each site's header, split by Regulation 93 listing type:
+  - *303(d) impaired:* not attaining; a cleanup plan (TMDL) is needed.
+  - *TMDL in place:* impaired, with an approved cleanup plan.
+  - *Monitoring & Evaluation:* possible non-attainment, data not conclusive; not an impairment.
 - The sites sheet columns `Ag`, `AQLife`, `Rec`, `WS` are **303(d) assessment status codes** (F = fully supporting, N = not supporting, I = insufficient information, X = not assessed). They are not use classifications. Use classifications come from Regulation 35.
 
 ### Site types
@@ -135,10 +140,17 @@ The TVS is calculated at that hardness and the result is flagged if it exceeds i
 - **Tiers:** each segment's temperature tier comes from its Reg 35 table (CS-I, CS-II, WS-II, CL, CLL). Segments 3b and 4b have custom seasonal values listed in their tables.
 - **Values:** tier values come from Reg 31 Table I. Acute applies to the daily maximum (DM); chronic applies to the maximum weekly average temperature (MWAT).
 - **Seasonal comparison:** each reading is compared only to the standard in effect on its date.
+- **Charts:** acute and chronic are each drawn as one stepped line that changes at the season boundaries. Dots are colored by in-season exceedance (instead of shaded bands).
 - **Grab samples:** most readings are single grab samples, so these comparisons are a screening indicator only.
 
 ### Dissolved oxygen
 DO standards are minimums. The year-round chronic minimum is flagged. The 7.0 mg/L spawning minimum is shown for reference but not flagged, because spawning periods are not known for each site.
+
+### Charts
+- **Site View** draws each standard as a dashed line, with a legend explaining each line type (acute, chronic, spawning minimum, drinking-water screening level, Reg 85 limits, Idarado ROD target, pH range). Shaded bands show attaining, chronic exceedance, and acute exceedance zones.
+- **Only the binding (strictest) value is drawn** for each standard type. The standards panel lists every standard that applies.
+- **Parameter View** draws a standard line when every selected site's segment has the same standard for that parameter. Where segments differ, the lines are omitted and the view lists which parameters are affected.
+- **Hardness-based (TVS) lines** are not drawn in Parameter View, because they vary by sample; exceedance flags still use each sample's hardness.
 
 ### River distance (Longitudinal Profile)
 `compute_stream_distance.py` downloads the San Miguel flowline network upstream of its mouth from the USGS NLDI API. It builds a directed graph and calculates cumulative distance from the mouth. Each site is then snapped to its nearest flowline. Sites near confluences should be reviewed, since they can snap to the wrong branch.
