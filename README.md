@@ -154,6 +154,10 @@ DO standards are minimums. The year-round chronic minimum is flagged. The 7.0 mg
 - **Hardness-based (TVS) lines** are not drawn in Parameter View, because they vary by sample; exceedance flags still use each sample's hardness.
 
 ### River distance (Longitudinal Profile)
+`build_app_data.py` reads the distances from `stream_distances.csv` on every build. Before Nov 2026 they were added once by hand, and later rebuilds dropped them, which emptied the Longitudinal Profile.
+
+**Site medians include non-detects.** A non-detect's true value is below the lab limit, so it ranks below every detected value; no number is substituted. If the middle sample is a non-detect, the site's median is shown as a triangle labeled "not detected", with the sample and non-detect counts in the tooltip.
+
 `compute_stream_distance.py` downloads the San Miguel flowline network upstream of its mouth from the USGS NLDI API. It builds a directed graph and calculates cumulative distance from the mouth. Each site is then snapped to its nearest flowline. Sites near confluences should be reviewed, since they can snap to the wrong branch.
 
 ### Stream discharge (flow)
