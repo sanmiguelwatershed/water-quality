@@ -73,6 +73,7 @@ Spatial data:
 - Each record keeps its original organization, method, fraction (dissolved / total recoverable), and source file.
 - **Units are normalized at build time:** °F to °C; total phosphorus µg/L to mg/L; consistent metal units.
 - **Implausible values are excluded from charts**, e.g. stream temperatures above 40 °C (typically °F values mislabeled as °C).
+- **Sample counts:** each chart states the total samples collected and how many were not detected. A *Show non-detects* checkbox (on by default, remembered per browser) can hide the non-detect markers.
 - **Non-detects** are results the lab reported as "not detected", "non-detect", "below detection/reporting limit", or "<". They are plotted as triangles at the reporting limit (or the method detection limit if no reporting limit is given) and never flagged as exceedances. The tooltip shows "not detected (< limit)".
 - **Estimated values:** results flagged `J` or "present below quantification limit" were detected, but below the level the lab can quantify reliably. They are plotted as normal results, labeled "estimated" in the tooltip.
 - **Why non-detects can sit above detected results:** a non-detect is drawn at its reporting limit (e.g. < 0.05 mg/L), while estimated detections from the same lab can be lower (e.g. 0.011 mg/L). Reporting limits also differ between labs and years. The true value of a non-detect is anywhere between 0 and the limit.
@@ -215,6 +216,11 @@ python3 shp_to_kmz.py path/to/layer.zip
 5. **Publish:** commit `index.html` and `app_data.json` and push to `main`. GitHub Pages redeploys automatically.
 
 ## Limitations
+
+- **Non-detect markers are drawn at the reporting limit.** A non-detect's true value is anywhere from 0 up to that limit, so a triangle at a high reporting limit (e.g. Colorado River Watch selenium at 5.4 µg/L) can sit above other labs' detections. Plotting non-detects along the zero line, with the limit in the tooltip, is under consideration and has not been adopted yet.
+- **What a triangle covers depends on the lab.** Labs that report `J` estimates (CDPHE, SMWC's contract lab) report values between the detection and reporting limits as estimated dots, so their triangles mean below detection. Labs that don't report estimates (mostly Colorado River Watch) report anything below the reporting limit as not detected, so their triangles also include results that were present but not quantifiable.
+- **Reporting limits differ by lab, method, and era.** SMWC's recent data has the lowest limits for most metals (e.g. arsenic 1 µg/L, selenium 0.25 µg/L). River Watch and older state data are typically 5–10 µg/L. Some state reporting limits are set conservatively high relative to what the instrument can detect.
+- **USGS "detected, not quantified" results** (390 records, no value reported) are all from stations not shown in the app, so none are included.
 
 - **Screening only.** Exceedance flags are a screening tool. Formal attainment assessments follow CDPHE's listing methodology (e.g. 85th percentiles, two-month geometric means for *E. coli*, continuous data for temperature).
 - **Arsenic.** The 0.02 µg/L arsenic standard is below what current laboratory methods can detect, so nearly every detected arsenic result exceeds it. A statewide temporary modification for permitted dischargers (§35.6(2)(c), through 12/31/2029) does not change the in-stream standard.

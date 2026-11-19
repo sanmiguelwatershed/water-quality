@@ -637,6 +637,21 @@ a.rl:hover{opacity:.7}
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script>
 // ── STATE ──
+// Non-detects are shown by default (they show concentrations are low); the checkbox can hide them
+let SHOW_ND=true;
+try{SHOW_ND=localStorage.getItem('smwc_show_nd')!=='0';}catch(e){}
+function setShowND(v){
+  SHOW_ND=v;
+  try{localStorage.setItem('smwc_show_nd',v?'1':'0');}catch(e){}
+  if(selSite) renderSite();
+  if(D&&pvSel.size) pvRender();
+}
+function ndSummaryHtml(total,nd){
+  if(!total) return '';
+  const txt=`${total.toLocaleString()} sample${total===1?'':'s'} collected`+(nd?` · ${nd.toLocaleString()} not detected${SHOW_ND?' (▲)':' (hidden)'}`:'');
+  const box=nd?`<label style="margin-left:10px;cursor:pointer;font-weight:400;white-space:nowrap"><input type="checkbox" ${SHOW_ND?'checked':''} onchange="setShowND(this.checked)" style="vertical-align:middle;margin:0 3px 0 0">Show non-detects</label>`:'';
+  return `<span class="lgi" style="width:100%;flex-wrap:wrap"><strong>${txt}</strong>${box}</span>`;
+}
 let D=null, MAP=null, selSite=null, sChart=null, pvChart=null, pvCharts=[], markers={}, pvSel=new Set(), pvRelevant=[], orgVis={};
 let pvMiniMap=null, pvMM_huc10Layer=null, pvMM_huc12Layer=null, pvMM_siteLayer=null, pvMM_huc8Layer=null;
 let lpMiniMap=null, lpMM_huc10Layer=null, lpMM_huc12Layer=null, lpMM_siteLayer=null, lpMM_huc8Layer=null;
@@ -1031,8 +1046,9 @@ function renderSite(){
   orgs.forEach(o=>{
     const hasND=orgMap[o].some(r=>r.nd);
     legParts.push(`<span class="lgi"><span class="lg-dot" style="background:${DOT_COL}"></span>${esc(D.org_labels[o]||o)}</span>`);
-    if(hasND) legParts.push(`<span class="lgi"><svg width="10" height="9" style="flex-shrink:0;margin-right:2px"><polygon points="5,1 9.5,8.5 0.5,8.5" fill="${DOT_COL}99"/></svg>${esc(D.org_labels[o]||o)} (ND)</span>`);
+    if(hasND&&SHOW_ND) legParts.push(`<span class="lgi"><svg width="10" height="9" style="flex-shrink:0;margin-right:2px"><polygon points="5,1 9.5,8.5 0.5,8.5" fill="${DOT_COL}99"/></svg>${esc(D.org_labels[o]||o)} (ND)</span>`);
   });
+  legParts.unshift(ndSummaryHtml(recs.length,recs.filter(r=>r.nd).length));
   svLeg.innerHTML=legParts.join('');
   svLeg.style.display='flex';
   // Build chart datasets — ALL dots uniform dark slate, zone shading carries status info
@@ -1049,7 +1065,7 @@ function renderSite(){
       pointRadius:PT_R,pointHoverRadius:PT_H,
       borderWidth:0,showLine:false,
     });
-    if(nondetects.length) datasets.push({
+    if(nondetects.length&&SHOW_ND) datasets.push({
       label:(D.org_labels[org]||org)+' (non-detect)',
       data:nondetects.map(r=>({x:r.d,y:r.v,nd:1})),
       borderColor:DOT_COL+'88',backgroundColor:DOT_COL+'88',
@@ -1529,7 +1545,7 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
   const isMin=MIN_DIRECTION.has(param);
   const paramGroup=D.param_config[param]?.group||'';
   const datasets=[],legItems=[];
-  let rawUnit='';
+  let rawUnit='', totN=0, ndN=0;
   // Build stable color map from ALL selected sites so colors don't shift when a site lacks data
   const siteColorMap=new Map();
   let ci=0;
@@ -1575,7 +1591,8 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
     if(normal.length) datasets.push({label:sName,data:normal.map(r=>({x:r.d,y:cv(r),est:r.est})),borderColor:col,backgroundColor:col+'bb',pointRadius:4,pointHoverRadius:6,pointStyle:'circle',borderWidth:0,showLine:false});
     if(chronExc.length) datasets.push({label:sName+' (chronic exc.)',data:chronExc.map(r=>({x:r.d,y:cv(r),est:r.est})),borderColor:col,backgroundColor:col+'bb',pointRadius:5,pointHoverRadius:7,pointStyle:'rectRot',borderWidth:1,showLine:false});
     if(acuteExc.length) datasets.push({label:sName+' (acute exc.)',data:acuteExc.map(r=>({x:r.d,y:cv(r),est:r.est})),borderColor:col,backgroundColor:col+'bb',pointRadius:5,pointHoverRadius:8,pointStyle:'star',borderWidth:1,showLine:false});
-    if(nds.length) datasets.push({label:sName+' (non-detect)',data:nds.map(r=>({x:r.d,y:cv(r),nd:1})),borderColor:col,backgroundColor:col+'66',pointRadius:5,pointHoverRadius:7,pointStyle:'triangle',borderWidth:1.2,showLine:false});
+    totN+=allRecs.length; ndN+=nds.length;
+    if(nds.length&&SHOW_ND) datasets.push({label:sName+' (non-detect)',data:nds.map(r=>({x:r.d,y:cv(r),nd:1})),borderColor:col,backgroundColor:col+'66',pointRadius:5,pointHoverRadius:7,pointStyle:'triangle',borderWidth:1.2,showLine:false});
     if(allRecs.length) legItems.push({label:site.name,col});
   });
   const unit=toDisplayUnit(0,rawUnit,paramGroup).u;
@@ -1611,7 +1628,7 @@ function pvBuildDatasetsForParam(param,yrFrom,yrTo){
     stdHidden=segStds.some(l=>l.length);
     stdNote=tvsNote+(stdHidden?'Standard lines not shown — they differ between the selected sites\' segments. Select sites from one segment to see them.':'');
   }
-  return {datasets,legItems,stdNote,stdLegend,stdTypes,stdHidden,unit,hasData:legItems.length>0};
+  return {datasets,legItems,stdNote,stdLegend,stdTypes,stdHidden,totN,ndN,unit,hasData:legItems.length>0};
 }
 const PV_LEG_SYMBOLS='<div style="width:100%;height:1px;background:var(--bdr);margin:6px 0"></div><div class="li" style="gap:12px;color:var(--muted)"><span style="display:flex;align-items:center;gap:4px"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="#555"/></svg> Attaining</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><polygon points="6,1.5 11,10.5 1,10.5" fill="#55555566" stroke="#555" stroke-width="1.2"/></svg> Non-detect</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><rect x="1" y="1" width="10" height="10" fill="#555" transform="rotate(45,6,6)"/></svg> Chronic exc.</span><span style="display:flex;align-items:center;gap:4px"><svg width="12" height="12"><text x="6" y="10" text-anchor="middle" font-size="13" fill="#555">★</text></svg> Acute exc.</span></div>';
 function pvChartOptions(unit,small){
@@ -1644,9 +1661,10 @@ function pvRender(){
     pvciM.innerHTML='<div class="pvci-multi-grid" id="pvci-grid"></div>';
     const grid=document.getElementById('pvci-grid');
     let palIdx=0;
-    const groupStdTypes=new Set(), hiddenStd=[];
+    const groupStdTypes=new Set(), hiddenStd=[]; let gTot=0, gNd=0;
     paramsWithData.forEach(p=>{
-      const {datasets,hasData,unit,stdTypes,stdHidden}=pvBuildDatasetsForParam(p,yrFrom,yrTo);
+      const {datasets,hasData,unit,stdTypes,stdHidden,totN,ndN}=pvBuildDatasetsForParam(p,yrFrom,yrTo);
+      gTot+=totN; gNd+=ndN;
       stdTypes.forEach(t=>groupStdTypes.add(t));
       if(stdHidden&&hasData) hiddenStd.push(p);
       if(!hasData) return;
@@ -1668,19 +1686,20 @@ function pvRender(){
       });
       pvleg.innerHTML=legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join('')+PV_LEG_SYMBOLS;
     }
+    pvleg.innerHTML=`<div class="li">${ndSummaryHtml(gTot,gNd)}</div>`+pvleg.innerHTML;
     if(groupStdTypes.size) pvleg.innerHTML+=`<div class="li" style="gap:12px;flex-wrap:wrap;color:var(--muted)">${stdLineLegend([...groupStdTypes].map(type=>({type,value:0})),'')}</div>`;
     pvnote.textContent=hiddenStd.length?`Standard lines not shown for ${hiddenStd.join(', ')} — they differ between the selected sites' segments. Select sites from one segment to see them.`:''; return;
   }
   // Single param mode
   pvci.style.display=''; pvciM.style.display='none';
-  const {datasets,legItems,stdNote,stdLegend,unit,hasData}=pvBuildDatasetsForParam(param,yrFrom,yrTo);
+  const {datasets,legItems,stdNote,stdLegend,totN,ndN,unit,hasData}=pvBuildDatasetsForParam(param,yrFrom,yrTo);
   if(!hasData){
     pvleg.innerHTML=''; pvnote.textContent='No data found for the selected sites and parameter. Try selecting different sites or adjusting the year range.'; return;
   }
   pvChart=new Chart(document.getElementById('pvc2').getContext('2d'),{type:'scatter',data:{datasets},options:pvChartOptions(unit,false)});
   const pvLegHuc=PV_COLOR_BY==='huc10'||PV_COLOR_BY==='huc12';
   const selSitesSingle=[...pvSel].map(sid=>D.sites.find(s=>s.id===sid)).filter(Boolean);
-  pvleg.innerHTML=(pvLegHuc?buildColorByLegend(PV_COLOR_BY,selSitesSingle):legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join(''))+PV_LEG_SYMBOLS+(stdLegend?`<div class="li" style="gap:12px;flex-wrap:wrap;color:var(--muted)">${stdLegend}</div>`:'');
+  pvleg.innerHTML=`<div class="li">${ndSummaryHtml(totN,ndN)}</div>`+(pvLegHuc?buildColorByLegend(PV_COLOR_BY,selSitesSingle):legItems.map(li=>`<div class="li"><div class="ld" style="background:${li.col}"></div><span>${esc(li.label)}</span></div>`).join(''))+PV_LEG_SYMBOLS+(stdLegend?`<div class="li" style="gap:12px;flex-wrap:wrap;color:var(--muted)">${stdLegend}</div>`:'');
   pvnote.textContent=stdNote;
 }
 
