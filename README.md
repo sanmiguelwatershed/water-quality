@@ -73,6 +73,9 @@ Spatial data:
 - Each record keeps its original organization, method, fraction (dissolved / total recoverable), and source file.
 - **Units are normalized at build time:** °F to °C; total phosphorus µg/L to mg/L; consistent metal units.
 - **Implausible values are excluded from charts**, e.g. stream temperatures above 40 °C (typically °F values mislabeled as °C).
+- **pH:** values outside 2–12 are excluded as implausible. Naturally acidic sites such as Iron Bog (pH 3.2–4.0) are real and kept. The CDSN characteristic "pH measured at" is the lab's temperature during the pH measurement (about 20–23 °C), not pH, and is excluded.
+- **Specific conductance:** the legacy SMWC database (`WQ_DBASE_2010`) labels conductance µmhos/cm, but most of its values are actually mS/cm (median 0.3 versus about 400 µS/cm elsewhere). Values under 10 from that file are multiplied by 1,000; its genuine µS/cm values (50–2,300) are unchanged.
+- **Single-record corrections** for clear data-entry errors are listed in `DATA_CORRECTIONS` in `build_app_data.py` and applied at build time; the master workbook is left as received. Currently: Waterfall 2006-06-22, where pH and conductance were entered in each other's columns.
 - **Sample counts:** each chart states the total samples collected and how many were not detected. A *Show non-detects* checkbox (on by default, remembered per browser) can hide the non-detect markers.
 - **Non-detects** are results the lab reported as "not detected", "non-detect", "below detection/reporting limit", or "<". They are plotted as triangles at the reporting limit (or the method detection limit if no reporting limit is given) and never flagged as exceedances. The tooltip shows "not detected (< limit)".
 - **Estimated values:** results flagged `J` or "present below quantification limit" were detected, but below the level the lab can quantify reliably. They are plotted as normal results, labeled "estimated" in the tooltip.
