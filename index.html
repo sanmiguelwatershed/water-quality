@@ -181,7 +181,15 @@ main{margin-top:54px;height:calc(100vh - 54px);display:flex;flex-direction:colum
 #gi{max-width:820px;margin:0 auto;padding:28px 22px}
 #gi h2{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;margin-bottom:4px}
 .subtitle{color:var(--muted);font-size:13.5px;margin-bottom:24px}
-.gs{margin-bottom:24px}
+.gs{margin-bottom:6px;border-bottom:1px solid var(--bdr)}
+.gs>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 2px}
+.gs>summary::-webkit-details-marker{display:none}
+.gs>summary::before{content:'▸';color:var(--accent);font-size:14px;transition:transform .15s;flex-shrink:0}
+.gs[open]>summary::before{transform:rotate(90deg)}
+.gs>summary:hover h3{text-decoration:underline}
+.gs>summary h3{margin:0!important;padding:0!important;border:0!important}
+.gs-body{padding:2px 2px 14px 24px}
+.gs-toggle{font-size:12.5px;color:var(--accent);cursor:pointer;background:none;border:0;padding:0;text-decoration:underline}
 .gs h3{font-family:'Playfair Display',serif;font-size:17px;font-weight:400;color:var(--accent);
   margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bdr)}
 .gs p{margin-bottom:8px;line-height:1.65}
@@ -495,10 +503,12 @@ a.rl:hover{opacity:.7}
 <div id="gi">
   <h2>Water Quality Standards Guide</h2>
   <p class="subtitle">How standards and reference lines are determined and displayed in this dashboard</p>
+  <p style="font-size:13px;color:var(--muted);margin:-12px 0 14px">Select a topic to read more. <button class="gs-toggle" onclick="document.querySelectorAll('#gi details.gs').forEach(d=>d.open=true)">Expand all</button> · <button class="gs-toggle" onclick="document.querySelectorAll('#gi details.gs').forEach(d=>d.open=false)">Collapse all</button></p>
 
-  <div class="gs">
-    <h3>Colorado Regulatory Framework</h3>
-    <p>Water quality standards in Colorado are set by the <strong>Water Quality Control Commission (WQCC)</strong> and administered by <a class="rl" href="https://cdphe.colorado.gov/water-quality-control-commission-regulations" target="_blank">CDPHE</a>. For the San Miguel watershed, three regulations are most relevant:</p>
+  <details class="gs">
+    <summary><h3>Colorado Regulatory Framework</h3></summary>
+    <div class="gs-body">
+    <p>Water quality standards in Colorado are set by the <strong>Water Quality Control Commission (WQCC)</strong> and administered by <a class="rl" href="https://cdphe.colorado.gov/water-quality-control-commission-regulations" target="_blank">CDPHE</a>. For the San Miguel watershed, four regulations are most relevant:</p>
     <ul>
       <li><strong>Regulation 31</strong> — Basic Standards and Methodologies for Surface Water. Contains statewide numeric tables used across all basins, including Table I (water supply standards), Table II (fixed inorganic standards), and Table III (hardness-based metal equations).<br>
         <a class="rl" href="https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=11749&fileName=5%20CCR%201002-31" target="_blank">→ 5 CCR 1002-31 (PDF — CO Secretary of State)</a>
@@ -506,23 +516,30 @@ a.rl:hover{opacity:.7}
       <li><strong>Regulation 35</strong> — Classifications and Numeric Standards for the Gunnison and Lower Dolores River Basins. Assigns designated use classifications and numeric standards to specific stream segments (identified by AUID code, e.g. COGUSM03b_A).<br>
         <a class="rl" href="https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=11743&fileName=5%20CCR%201002-35" target="_blank">→ 5 CCR 1002-35 (PDF — CO Secretary of State)</a>
       </li>
+      <li><strong>Regulation 85</strong> — Nutrients Management Control Regulation. Sets phosphorus and nitrogen limits for wastewater treatment plant effluent; used for the effluent sites in this dashboard.<br>
+        <a class="rl" href="https://cdphe.colorado.gov/water-quality-control-commission-regulations" target="_blank">→ Water Quality Control Commission regulations (CDPHE)</a>
+      </li>
       <li><strong>Regulation 93</strong> — Colorado's Section 303(d) List of Impaired Waters. Identifies segments where water quality standards are not being met and TMDLs are required.<br>
         <a class="rl" href="https://www.coloradosos.gov/CCR/GenerateRulePdf.do?ruleVersionId=12466&fileName=5%20CCR%201002-93" target="_blank">→ 5 CCR 1002-93 (PDF — CO Secretary of State)</a>
       </li>
     </ul>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>How Standards Are Assigned to Each Site</h3>
+  <details class="gs">
+    <summary><h3>How Standards Are Assigned to Each Site</h3></summary>
+    <div class="gs-body">
     <p>Every site is matched to a Regulation 35 segment. The standards shown for that site are transcribed directly from that segment's table in Regulation 35, Appendix 35-1 (edition effective 12/31/2024). The segment's use classifications (Aquatic Life class, Recreation, Agriculture, Water Supply) determine which values appear in its table.</p>
     <div class="co co-blue">
       Per Reg 35 §35.6(1), each segment table lists <strong>only the most stringent standard</strong> for each parameter, so that is the value used here. Regulation 31 is used only to resolve "TVS" entries into numbers (Table III equations).<br><br>
       Where a table cell lists two values (e.g. Manganese chronic "TVS/WS"), both are stored and the stricter one is drawn on charts. Values marked "WS" (iron 300 µg/L, manganese 50 µg/L, sulfate 250 mg/L dissolved) apply where water supply is an actual use, per §35.6(2)(b).
     </div>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>TVS — Hardness-Based Metal Standards</h3>
+  <details class="gs">
+    <summary><h3>TVS — Hardness-Based Metal Standards</h3></summary>
+    <div class="gs-body">
     <p>Many metals in Regulation 35 are listed as <strong>TVS (Table Value Standard)</strong>. This means the numeric standard is <em>not a fixed number</em> — it is calculated from the water's hardness using equations in Regulation 31, Table III. Higher hardness (calcium and magnesium content, expressed as mg/L CaCO₃) results in a higher allowable concentration, reflecting reduced bioavailability of metals in harder water.</p>
     <div class="co co-blue">
       <strong>Hardness-based parameters in this dashboard:</strong> Zinc, Cadmium, Copper, Lead, Manganese, Nickel, Silver, Chromium III (only where the segment's Reg 35 table lists TVS). Some segments use site-specific values instead, e.g. chronic dissolved zinc of 190 µg/L in segments 3a, 3b, 6a and 6b.<br><br>
@@ -534,9 +551,11 @@ a.rl:hover{opacity:.7}
     </div>
     <p><a class="rl" href="https://cdphe.colorado.gov/environment/water-quality/clean-water/water-quality-standards" target="_blank">→ CDPHE Hardness-Based Standards Calculator (Excel)</a></p>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>Arsenic Standards by Segment Use</h3>
+  <details class="gs">
+    <summary><h3>Arsenic Standards by Segment Use</h3></summary>
+    <div class="gs-body">
     <div class="co co-red">
       <strong>Per the Reg 35 segment tables:</strong>
       <ul style="margin:0.5em 0 0 1.2em">
@@ -549,18 +568,22 @@ a.rl:hover{opacity:.7}
       Charts instead show <strong>10 µg/L</strong> as a screening level. That is the EPA drinking water limit (MCL) for tap water, and Regulation 31's attainment threshold for arsenic in water supply segments (Table III, footnote 13). Results above 10 µg/L are flagged. The 0.02 µg/L standard of record still appears in each site's standards panel.
     </div>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>Temperature Standards</h3>
+  <details class="gs">
+    <summary><h3>Temperature Standards</h3></summary>
+    <div class="gs-body">
     <p>Each segment's Reg 35 table assigns a temperature tier (e.g. CS-I for cold streams with cutthroat or brook trout, WS-II for warm streams, CL/CLL for cold lakes). Reg 31 Table I sets each tier's seasonal values. Segments 3b and 4b have their own seasonal values listed in their Reg 35 tables.</p>
     <div class="co co-blue">
       <strong>Acute</strong> applies to the daily maximum (DM). <strong>Chronic</strong> applies to the maximum weekly average temperature (MWAT). Both change by season, so charts show stepped lines for each season and color the dots that exceed the standard in effect on that date.<br><br>
       Most readings here are single grab samples, so comparisons are a screening indicator. Formal assessment uses continuous logger data.
     </div>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>Wastewater Effluent, Mine Discharge, and Spring Sites</h3>
+  <details class="gs">
+    <summary><h3>Wastewater Effluent, Mine Discharge, and Spring Sites</h3></summary>
+    <div class="gs-body">
     <p>Reg 35 standards apply to streams and lakes, so they are only applied to surface water sites. Other sample types are handled separately:</p>
     <ul>
       <li><strong>Wastewater treatment facility (WWTF) effluent</strong> — compared with Regulation 85 nutrient effluent limits for existing domestic wastewater treatment works:
@@ -575,18 +598,22 @@ a.rl:hover{opacity:.7}
       <strong>Reg 85 limits are not yet in permits in this watershed.</strong> The San Miguel basin (HUC 14030003) is listed as a low-priority watershed, so these limits cannot be added to permits before 12/31/2027 (§85.5(1)(a)(ii)). Facilities with design capacity ≤ 1.0 MGD or owned by disadvantaged communities are excluded entirely (§85.5(1)(a)(i)). The limits are shown here as a benchmark.
     </div>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>Idarado Consent Decree Zinc Standard</h3>
+  <details class="gs">
+    <summary><h3>Idarado Consent Decree Zinc Standard</h3></summary>
+    <div class="gs-body">
     <p>Sites on the San Miguel mainstem from the Pandora Mill (Telluride) downstream to the South Fork confluence are subject to a separate compliance target from the 1987 Idarado Record of Decision, in addition to the Reg 35 zinc standard (site-specific chronic 190 µg/L dissolved in segments 3a and 3b):</p>
     <div class="co co-gold">
       <strong>Zinc: 0.15 mg/L (150 µg/L) dissolved</strong> — compliance target per Table 4.1, Record of Decision for the Idarado Mining and Milling Complex (State of Colorado v. Idarado Mining Co., Civil Action 83-C-2385, March 1987). Applies to segments COGUSM03a_A and COGUSM03b_A.
     </div>
     <p>This standard is shown as a separate dashed line (amber/brown color) on charts for applicable sites, clearly distinguished from the state TVS standard.</p>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>Nutrient Standards and EPA Reference Criteria</h3>
+  <details class="gs">
+    <summary><h3>Nutrient Standards and EPA Reference Criteria</h3></summary>
+    <div class="gs-body">
     <p><strong>Nitrate, Nitrite, and Ammonia</strong> have numeric standards in Regulation 35 and are shown with enforceable threshold lines.</p>
     <p><strong>Total Nitrogen and Total Phosphorus</strong> do not have numeric standards in Regulation 35 — only a narrative standard applies in Colorado. This dashboard displays EPA 304(a) recommended reference condition criteria as context:</p>
     <div class="co co-green">
@@ -599,9 +626,11 @@ a.rl:hover{opacity:.7}
     </ul>
     <p><a class="rl" href="https://www.epa.gov/nutrientpollution/ecoregional-nutrient-criteria-rivers-and-streams" target="_blank">→ EPA Ecoregional Nutrient Criteria</a></p>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>Standard Types</h3>
+  <details class="gs">
+    <summary><h3>Standard Types</h3></summary>
+    <div class="gs-body">
     <div class="sg">
       <span class="tg tg-a">ACUTE</span><span>Single-sample maximum. Protects against lethal short-term effects.</span>
       <span class="tg tg-c">CHRONIC</span><span>Long-term average (typically 30-day). Protects against sublethal and reproductive effects.</span>
@@ -611,9 +640,11 @@ a.rl:hover{opacity:.7}
       <span class="tg tg-tmdl">303(d)/TMDL</span><span>Segment listing status under Regulation 93, shown in each site's header. <strong>303(d) impaired</strong>: not attaining the standard; a cleanup plan (TMDL) is needed. <strong>TMDL in place</strong>: impaired, with an approved cleanup plan. <strong>Monitoring &amp; Evaluation</strong>: possible non-attainment, but the data aren't conclusive — not an impairment listing.</span>
     </div>
   </div>
+  </details>
 
-  <div class="gs">
-    <h3>Data Sources</h3>
+  <details class="gs">
+    <summary><h3>Data Sources</h3></summary>
+    <div class="gs-body">
     <table class="src-table">
       <tr><th>Organization</th><th>Role</th><th>Years</th></tr>
       <tr><td><span class="src-dot" style="background:#1a6bb5"></span><strong>SMWC</strong></td><td>San Miguel Watershed Coalition — primary watershed monitoring program</td><td>2014–2025</td></tr>
@@ -627,6 +658,7 @@ a.rl:hover{opacity:.7}
     </table>
     <p style="font-size:11.5px;color:var(--muted);margin-top:6px">All data compiled from CDPHE CDSN/AWQMS and EPA Water Quality Exchange (WQX/STORET). Database compiled May 2026. This dashboard is a draft for board and stakeholder review.</p>
   </div>
+  </details>
 </div>
 </div><!-- end guide -->
 
