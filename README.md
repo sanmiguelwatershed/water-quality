@@ -28,14 +28,21 @@ This GitHub repository holds only what the website needs. The source data and bu
 
 | In the Drive folder only | Purpose |
 |---|---|
-| `master_water_quality_6.xlsx` | Master database: `activities` (results), `sites`, `standards` sheets |
-| `build_standards.py` | Builds the `standards` sheet from Regulation 35 |
-| `build_app_data.py` | Builds `app_data.json` from the master workbook |
-| `compute_stream_distance.py` | Computes each site's river distance from the mouth |
-| `shp_to_kmz.py` | Utility: converts a zipped shapefile to KMZ for Google Earth |
-| `reg35_segments.json` | Parsed Reg 35 segment tables (written by `build_standards.py`) |
-| `stream_standards_san_miguel.geojson`, `lake_standards.geojson` | CDPHE stream and lake segment (assessment unit) layers |
+| `scripts/build_standards.py` | Builds the `standards` sheet from Regulation 35 |
+| `scripts/build_app_data.py` | Builds `app_data.json` from the master workbook |
+| `scripts/compute_stream_distance.py` | Computes each site's river distance from the mouth |
+| `scripts/shp_to_kmz.py` | Utility: converts a zipped shapefile to KMZ for Google Earth |
+| `data/master_water_quality_6.xlsx` | Master database: `activities` (results), `sites`, `standards` sheets |
+| `data/` (other files) | Source exports the master was compiled from (WQX, CDSN, CDPHE, legacy WQ DBASE 2010) |
+| `gis/stream_standards_san_miguel.geojson`, `gis/lake_standards.geojson` | CDPHE stream and lake segment (assessment unit) layers |
+| `gis/` (other files) | HUC shapefiles/zips and QGIS style files |
+| `derived/stream_distances.csv` | River distance from the mouth per site (written by `compute_stream_distance.py`) |
+| `derived/stream_reaches.csv` | NHDPlus stream attributes (name, ReachCode, stream order) per COMID |
+| `outputs/` | Exports for partners (e.g. flow data) and `data_qaqc_log.csv` |
+| `archive/` | Superseded or unused files kept for reference (old regulation copies, raw Water Quality Portal download, statewide segmentation layer) |
 | `../Water Quality Regulations/` | Regulation PDFs (5 CCR 1002-31, -35, -85, -93) |
+
+`reg35_segments.json` (parsed Reg 35 segment tables, written by `build_standards.py`) is kept in this repository for reference.
 
 ## Data sources
 
@@ -77,7 +84,7 @@ Spatial data:
 - **Specific conductance:** the legacy SMWC database (`WQ_DBASE_2010`) labels conductance µmhos/cm, but most of its values are actually mS/cm (median 0.3 versus about 400 µS/cm elsewhere). Values under 10 from that file are multiplied by 1,000; its genuine µS/cm values (50–2,300) are unchanged.
 - **Single-record corrections** for clear data-entry errors are listed in `DATA_CORRECTIONS` in `build_app_data.py` and applied at build time; the master workbook is left as received. Currently: Waterfall 2006-06-22, where pH and conductance were entered in each other's columns.
 - **Suspect records** are excluded via `DATA_EXCLUSIONS` in `build_app_data.py`, pending review against field sheets. Currently: Fall Creek 2007-06-15 (pH 3.13) and Bear Creek 2014-05-22 (pH 10.57).
-- **QA/QC log:** every excluded, corrected, or suspect record, plus systematic and site-level issues, is listed in `data_qaqc_log.csv` in the Drive folder (not in this repository) for follow-up.
+- **QA/QC log:** every excluded, corrected, or suspect record, plus systematic and site-level issues, is listed in `outputs/data_qaqc_log.csv` in the Drive folder (not in this repository) for follow-up.
 - **Sample counts:** each chart states the total samples collected and how many were not detected. A *Show non-detects* checkbox (on by default, remembered per browser) can hide the non-detect markers.
 - **Non-detects** are results the lab reported as "not detected", "non-detect", "below detection/reporting limit", or "<". They are plotted as triangles at the reporting limit (or the method detection limit if no reporting limit is given) and never flagged as exceedances. The tooltip shows "not detected (< limit)".
 - **Estimated values:** results flagged `J` or "present below quantification limit" were detected, but below the level the lab can quantify reliably. They are plotted as normal results, labeled "estimated" in the tooltip.
@@ -159,7 +166,7 @@ DO standards are minimums. The year-round chronic minimum is flagged. The 7.0 mg
 - **Hardness-based (TVS) lines** are not drawn in Parameter View, because they vary by sample; exceedance flags still use each sample's hardness.
 
 ### River distance (Longitudinal Profile)
-`build_app_data.py` reads the distances from `stream_distances.csv` on every build. Before Nov 2026 they were added once by hand, and later rebuilds dropped them, which emptied the Longitudinal Profile.
+`build_app_data.py` reads the distances from `derived/stream_distances.csv` on every build. Before Nov 2026 they were added once by hand, and later rebuilds dropped them, which emptied the Longitudinal Profile.
 
 **Site medians include non-detects.** A non-detect's true value is below the lab limit, so it ranks below every detected value; no number is substituted. If the middle sample is a non-detect, the site's median is shown as a triangle labeled "not detected", with the sample and non-detect counts in the tooltip.
 
@@ -178,17 +185,17 @@ Tape, depth, and velocity readings are in feet and ft/s, and results are in cubi
 
 ## Build scripts
 
-Run these from the Drive folder (`SMWC_Water_Quality_App/`) with Python 3. Required packages: `pandas`, `geopandas`, `openpyxl`, and `pdftotext` (poppler) for `build_standards.py`.
+The scripts are in `scripts/` and locate their files relative to the app folder, so they can be run from anywhere. Requires Python 3. Required packages: `pandas`, `geopandas`, `openpyxl`, and `pdftotext` (poppler) for `build_standards.py`.
 
 ### `build_standards.py`
-Rewrites the `standards` sheet of `master_water_quality_6.xlsx` from the Regulation 35 PDF.
+Rewrites the `standards` sheet of `data/master_water_quality_6.xlsx` from the Regulation 35 PDF.
 - Extracts every Appendix 35-1 segment table and records its use classifications and each acute/chronic cell. The result is saved to `reg35_segments.json`.
 - Writes one row per table cell for every segment used by a site. TVS cells are stored as hardness equations (Reg 31 Table III); temperature rows carry their season window.
 - Keeps the Idarado Record of Decision rows and existing Reg 93 (303(d)) status notes.
 - Reads the regulation edition date from the PDF and records it with each row.
 
 ```bash
-python3 build_standards.py
+python3 scripts/build_standards.py
 ```
 
 ### `build_app_data.py`
@@ -199,28 +206,28 @@ Builds `app_data.json` for the web app from the master workbook.
 - Flags acute, chronic, and Idarado exceedances for every result (per-sample hardness for TVS; in-season standard for temperature).
 
 ```bash
-python3 build_app_data.py
+python3 scripts/build_app_data.py
 ```
 
 ### `compute_stream_distance.py`
-Writes `stream_distances.csv` (site, flowline COMID, distance from mouth in km, snap distance). Uses only the Python standard library plus the USGS NLDI web API.
+Writes `derived/stream_distances.csv` (site, flowline COMID, distance from mouth in km, snap distance). Uses only the Python standard library plus the USGS NLDI web API.
 
 ```bash
-python3 compute_stream_distance.py
+python3 scripts/compute_stream_distance.py
 ```
 
 ### `shp_to_kmz.py`
 Converts a zipped shapefile to KMZ.
 
 ```bash
-python3 shp_to_kmz.py path/to/layer.zip
+python3 scripts/shp_to_kmz.py path/to/layer.zip
 ```
 
 ## Updating the dashboard
 
-1. **New data:** append results to the `activities` sheet (and any new sites, with coordinates, to `sites`) in `master_water_quality_6.xlsx`.
+1. **New data:** append results to the `activities` sheet (and any new sites, with coordinates, to `sites`) in `data/master_water_quality_6.xlsx`.
 2. **New regulations:** when CDPHE updates Regulation 35, replace `Water Quality Regulations/5 CCR 1002-35.pdf` and run `build_standards.py`.
-3. **Rebuild:** run `build_app_data.py`.
+3. **Rebuild:** if sites were added, run `compute_stream_distance.py`; then run `build_app_data.py`.
 4. **Check locally:** run `python3 -m http.server 8000` in the folder and open http://localhost:8000.
 5. **Publish:** commit `index.html` and `app_data.json` and push to `main`. GitHub Pages redeploys automatically.
 

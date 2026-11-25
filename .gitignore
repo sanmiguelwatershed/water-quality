@@ -19,7 +19,16 @@ stream_standards_san_miguel.geojson
 stream_segmentation_standards.geojson
 lake_standards.geojson
 
+# Working folders (build scripts, source data, GIS, derived files, outputs, archive)
+scripts/
+data/
+gis/
+derived/
+outputs/
+archive/
+
 # Working files
+*.gsheet
 *.gdoc
 San_Miguel_Huc12/
 files.zip
